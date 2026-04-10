@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="./hex.css">
+  <link rel="stylesheet" href="./style.css">
+  <script src="./word_list.js"></script>
+  <title>Borsos László (Sejt automatták)</title>
+</head>
+
+<body>
+  <div class="container">
+    <div id="winMessage" style="display: none;">Gratulálok! Nyertél!</div>
+    <div id="loserMessage" style="display: none;">Sajnálom! Vesztettél!</div>
+    <div id="boardDiv">
+    </div>
+    <div id="buttons">
+      <select name="mode" id="mode">
+        <option value='play' selected>Play mode</option>
+        <option value='test'>Test mode</option>
+      </select>
+      <button onclick='resetMatrix(0)' class="button">Reset</button>
+      <!-- <button onclick='resetMatrix(1)' class="button">Reset draw</button> -->
+      <button onclick='goGenerate()' class="button chk" id="check">Play</button>
+      <button onclick='verify()' class="button" id="btnVerify">Verify</button>
+      <span>Delay: </span>
+      <select name="delay" id="delay">
+        <option value=0>none</option>
+        <option value=0.2 selected>0.2 sec</option>
+        <option value=0.5>0.5 sec</option>
+        <option value=1>1 sec</option>
+        <option value=2>2 sec</option>
+        <option value=5>5 sec</option>
+      </select>
+      <select name="neighbors" id="neighbors">
+        <option value="side" selected>Square Lateral Neighbor</option>
+        <option value="apex">Square Apex Neighbor</option>
+        <option value="hex">Hexagonal cellular grid</option>
+
+        <option value="life">Game of Life (square)</option>
+        <option value="life_hex">Game of Life (hex)</option>
+      </select>
+      <span>Max gen.: </span>
+      <select name="level" id="level">
+      </select>
+      <!-- <input type="checkbox" name="auto-check" id="auto-check" value="">
+            <label for="auto-check">Auto check</label> -->
+      <button onclick='help()' class="button">Help</button>
+      <br>
+      <div id="verifySection">
+        <span>Draw gen.: </span>
+        <form id="drawLevel">
+          <input type="radio" id="level1" name="drawLevel" value="1" checked>
+          <label for="level1">Gen. 1.</label>
+
+          <input type="radio" id="level2" name="drawLevel" value="2">
+          <label for="level2">Gen. 2.</label>
+
+          <input type="radio" id="level3" name="drawLevel" value="3">
+          <label for="level3">Gen. 3.</label>
+
+          <input type="radio" id="level4" name="drawLevel" value="4">
+          <label for="level4">Gen. 4.</label>
+
+          <input type="radio" id="level5" name="drawLevel" value="5">
+          <label for="level5">Gen. 5.</label>
+
+          <input type="radio" id="level6" name="drawLevel" value="6">
+          <label for="level6">Gen. 6.</label>
+
+        </form>
+
+        <!-- <select name="drawLevel" id="drawLevel">
+                <option value=1 selected>1 level</option>
+                <option value=2>2 level</option>
+                <option value=3>3 level</option>
+                <option value=4>4 level</option>
+                <option value=5>5 level</option>
+                <option value=6>6 level</option>
+              </select> -->
+      </div>
+
+      <div id="verifySection">
+        <form id="wordLevel">
+        </form>
+      </div>
+      <script>
+
+        const form = document.getElementById('wordLevel');
+
+        // A select elemek generálása
+        matrixWord.forEach((level, index) => {
+          // Létrehozunk egy select elemet
+          const select = document.createElement('select');
+          select.name = `lev${index + 1}`;
+          select.id = `lev${index + 1}`;
+
+          // Hozzáadjuk az első opciót ("none")
+          const noneOption = document.createElement('option');
+          noneOption.value = '---';
+          noneOption.selected = true;
+          noneOption.textContent = '---';
+          select.appendChild(noneOption);
+
+          // Hozzáadjuk a többi opciót a matrixWord tömbből
+          level.forEach((item, itemIndex) => {
+            const option = document.createElement('option');
+            option.value = item;
+            //    option.value = `lev${index + 1}${itemIndex + 1}`;
+            option.textContent = item;
+            select.appendChild(option);
+          });
+
+          // Hozzáadjuk a select elemet a formhoz
+          form.appendChild(select);
+          // select.addEventListener('change', function() {
+          //       const selectedValue = this.value;
+          //       // console.log(selectedValue);
+          //       const colorClass = `color${index + 1}`;
+          //       const styleElement = document.createElement('style');
+
+          //       // Ha már létezik egy style elem a fejlécek között ezzel az osztállyal, először eltávolítjuk
+          //       const existingStyleElement = document.querySelector(`style.${colorClass}`);
+          //       if (existingStyleElement) {
+          //         existingStyleElement.remove();
+          //       }
+
+          //       // Frissítjük a CSS tartalmat az új értékkel vagy üres stringgel
+          //       styleElement.innerHTML = `
+          //         .${colorClass}::before {
+          //           content: "${selectedValue === '---' ? '' : selectedValue}";
+          //         }
+          //       `;
+          //       styleElement.className = colorClass;
+          //       document.head.appendChild(styleElement);
+          //     });
+        });
+      </script>
+      <select name="word_mode" id="word_mode">
+        <option value='select' selected>Select mode</option>
+        <option value='word'>Word mode</option>
+      </select>
+
+    </div>
+  </div>
+  <script src="./script.js"></script>
+</body>
+
+</html>

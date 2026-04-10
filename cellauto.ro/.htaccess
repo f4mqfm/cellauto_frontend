@@ -1,0 +1,22 @@
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+
+  # Környezeti változók beállítása
+  SetEnv DB_HOST localhost
+  SetEnv DB_NAME cellular
+  SetEnv DB_USER root
+  SetEnv DB_PASSWORD LaciSoftmysql
+  SetEnv ENVIRONMENT PROD
+
+  # Ha a public mappában lévő fájlra érkezett a kérés, szolgáld ki a fájlt
+  RewriteCond %{REQUEST_URI} ^.*public/(.*)
+  RewriteRule ^(.*)$ src/public/%1 [END]
+
+  # Minden más esetben az index.php-t futtasd le
+  RewriteRule (.*)  src/index.php [QSA]
+
+  php_flag log_errors on
+  php_value error_reporting 3200
+  php_value error_log "error_log.txt"
+
+</IfModule>

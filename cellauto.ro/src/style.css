@@ -1,0 +1,192 @@
+body, html {
+    height: 100%;
+    margin: 0;
+    display: flex;
+    justify-content: center;
+    background-color: gray;
+    margin-top: 2%;
+  }
+
+  table {
+    border-collapse: collapse;
+    background-color: whitesmoke;
+    text-align: center;
+    font-size: 7px; 
+  }
+
+  td {
+    border: 1px solid #D3D3D3;
+    width: 20px;
+    height: 20px;
+    /* font-size: 3rem; */
+}
+
+@media (max-width: 640px) {
+td {
+        width: 15px;
+        height: 15px;
+        font-size: 2rem;
+    }
+}
+
+/* const colors = ["#25ad4f", "#fcf400", "#ee1c25", "#00a4e6", "#b97b55", "#ffc70a"]; */
+.colorStart {
+    background-color: #29ab54;
+}
+
+/* .color2 {
+    background-color: #eb1f28;
+}
+.color3 {
+    background-color: #fdf108;
+}
+.color1 {
+    background-color: #2596be;
+} */
+
+.color1 {
+    background-color: #25ad4f;
+}
+.color1::before {
+    content: "";
+    font-size: 10px; 
+}
+.color2 {
+    background-color: #fcf400;
+}
+.color2::before {
+    content: "";
+    font-size: 10px; 
+}
+.color3 {
+    background-color: #ee1c25;
+}
+.color3::before {
+    content: "";
+    font-size: 10px; 
+}
+.color4 {
+    background-color: #00a4e6;
+}
+.color4::before {
+    content: "";
+    font-size: 10px; 
+}
+.color5 {
+    background-color: #b97b55;
+}
+.color5::before {
+    content: "";
+    font-size: 10px; 
+}
+.color6 {
+    background-color: #ffc70a;
+}
+.color6::before {
+    content: "";
+    font-size: 10px; 
+}
+
+
+.button {
+    margin-top: 1rem;
+}
+
+.hidden {
+    display: none;
+}
+
+
+form {
+    display: flex;
+    align-items: center;
+  }
+  
+  input[type="radio"] {
+    display: none;
+  }
+  
+  label {
+    display: inline-block;
+    padding: 5px 10px;
+    margin-right: 5px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    cursor: pointer;
+    color: white;
+  }
+  
+  input[type="radio"]:checked + label {
+    background-color: whitesmoke;
+    color: black;
+    border: 2px solid #D3D3D3 ;
+  }
+  
+  #verifySection {
+    /* display: flex;  */
+    align-items: center;
+  }
+
+
+.plus {
+    font-weight: bold;
+    color: red;
+    font-size: 16px;
+    text-shadow: -1px 0 white, 0 1px white, 1px 0 white, 0 -1px white; 
+}
+
+.plus::before {
+    content: "+";
+}
+
+.minus {
+    font-weight: bold;
+    color: red;
+    font-size: 16px;
+    text-shadow: -1px 0 white, 0 1px white, 1px 0 white, 0 -1px white; 
+}
+.minus::before {
+    content: "m";
+}
+
+/* .ok {
+    border: 1px solid green;
+}
+.ok::before {
+    content: "o";
+} */
+
+.error {
+    font-weight: bold;
+    color: red;
+    font-size: 16px;
+    text-shadow: -1px 0 white, 0 1px white, 1px 0 white, 0 -1px white; 
+}
+.error::before {
+    content: "x";
+}
+
+
+#winMessage {
+    position: fixed; /* Fixált pozíció az oldal közepén */
+    top: 50%; /* Középen vertikálisan */
+    left: 50%; /* Középen horizontálisan */
+    transform: translate(-50%, -50%); /* Pontos középre igazítás */
+    background-color: yellow; /* Háttérszín */
+    padding: 20px; /* Padding */
+    border: 2px solid green; /* Keret */
+    font-size: 2em; /* Betűméret */
+    z-index: 1000; /* Előtérbe helyezés */
+  }
+  #loserMessage {
+    position: fixed; /* Fixált pozíció az oldal közepén */
+    top: 50%; /* Középen vertikálisan */
+    left: 50%; /* Középen horizontálisan */
+    transform: translate(-50%, -50%); /* Pontos középre igazítás */
+    background-color: whitesmoke; /* Háttérszín */
+    padding: 20px; /* Padding */
+    border: 2px solid red; /* Keret */
+    font-size: 2em; /* Betűméret */
+    z-index: 1000; /* Előtérbe helyezés */
+  }
+  

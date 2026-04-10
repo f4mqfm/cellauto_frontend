@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sejtautomaták Webalkalmazás</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #1e1e2f;
+            overflow: hidden;
+        }
+        .container {
+            text-align: center;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 8px 15px rgba(0, 0, 0, 0.2);
+            animation: fadeIn 1.5s ease-in-out;
+            z-index: 1;
+        }
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: scale(0.9);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+        .container h1 {
+            font-size: 2.5rem;
+            color: #333;
+            margin-bottom: 1rem;
+        }
+        .container p {
+            color: #555;
+            margin-bottom: 1.5rem;
+        }
+        .container a {
+            display: inline-block;
+            margin-top: 1rem;
+            padding: 0.75rem 1.5rem;
+            background-color: #007bff;
+            color: #ffffff;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: bold;
+            transition: background-color 0.3s ease, transform 0.2s ease;
+        }
+        .container a:hover {
+            background-color: #0056b3;
+            transform: scale(1.05);
+        }
+        .button-group {
+            margin-top: 2rem;
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+        }
+        .background {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, 60px);
+            grid-gap: 5px;
+            justify-content: center;
+            align-content: center;
+            overflow: hidden;
+        }
+        .hexagon {
+            width: 60px;
+            height: 34.64px;
+            background-color: yellow;
+            position: relative;
+            margin: 17.32px 0;
+            clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+            text-align: center;
+            line-height: 34.64px;
+            font-size: 1rem;
+            color: red;
+            font-weight: bold;
+        }
+        .hexagon:nth-child(odd) {
+            margin-left: 30px;
+        }
+    </style>
+</head>
+<body>
+    <div class="background">
+        <div class="hexagon">15</div>
+        <div class="hexagon">13</div>
+        <div class="hexagon">6</div>
+        <div class="hexagon">5</div>
+        <div class="hexagon">12</div>
+        <div class="hexagon">18</div>
+        <div class="hexagon">7</div>
+    </div>
+    <div class="container">
+        <h1>Üdvözlünk a Sejtautomaták Világában!</h1>
+        <p>Fedezd fel a sejtautomaták lenyűgöző működését, például a "Game of Life" modelleken keresztül.</p>
+        <div class="button-group">
+            <a href="login.php">Bejelentkezés</a>
+            <a href="guest.php">Belépés vendégként</a>
+        </div>
+    </div>
+</body>
+</html>
