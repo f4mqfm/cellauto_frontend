@@ -1,0 +1,272 @@
+/* App shell: fejléc + bal oldalsáv + középen játék */
+html.app-shell,
+body.app-shell {
+  height: 100%;
+  margin: 0;
+  margin-top: 0;
+  display: block;
+  background: #808080;
+}
+
+.app-root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+}
+
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  padding: 0.5rem 1rem;
+  background: #2c2c2c;
+  color: #f5f5f5;
+  flex-shrink: 0;
+}
+
+.app-header__user {
+  font-size: 0.9rem;
+  opacity: 0.95;
+}
+
+.app-header__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.app-header button {
+  cursor: pointer;
+  padding: 0.35rem 0.75rem;
+  border: 1px solid #666;
+  border-radius: 4px;
+  background: #444;
+  color: #fff;
+}
+
+.app-header button:hover {
+  background: #555;
+}
+
+.app-body {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+
+.app-sidebar {
+  width: min(380px, 42vw);
+  flex-shrink: 0;
+  padding: 0.75rem 1rem;
+  background: #e8e8e8;
+  border-right: 1px solid #bbb;
+  overflow: auto;
+}
+
+.app-sidebar h2 {
+  margin: 0 0 0.5rem;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.app-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0.75rem 1rem 2rem;
+  overflow: auto;
+  background: #808080;
+}
+
+.app-main .container {
+  margin-top: 0;
+}
+
+.app-hint {
+  font-size: 0.85rem;
+  color: #333;
+  margin-bottom: 0.75rem;
+  line-height: 1.35;
+}
+
+.app-picker {
+  margin-bottom: 0.75rem;
+}
+
+.app-picker label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+  color: #222;
+}
+
+.app-picker select {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: 0.35rem 0.5rem;
+  font-size: 0.9rem;
+  border: 1px solid #aaa;
+  border-radius: 4px;
+  background: #fff;
+}
+
+/* Login modal */
+.login-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.login-backdrop.is-open {
+  display: flex;
+}
+
+.login-modal {
+  background: #fff;
+  padding: 1.25rem 1.5rem;
+  border-radius: 8px;
+  min-width: min(360px, 92vw);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
+}
+
+.login-modal h3 {
+  margin: 0 0 1rem;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.app-save-load {
+  margin: 0.75rem 0;
+  padding-top: 0.5rem;
+  border-top: 1px solid #ccc;
+}
+
+.app-save-load__title {
+  font-size: 0.95rem;
+  margin: 0 0 0.4rem;
+  font-weight: 600;
+}
+
+.app-save-load__btns {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+/* Felülírjuk a style.css globális form / label szabályait */
+#loginForm,
+#saveForm,
+#loadForm {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+}
+
+#loginForm label,
+#saveForm label,
+#loadForm label {
+  display: block;
+  margin: 0.85rem 0 0;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  cursor: default;
+  color: #333;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+#loginForm label:first-of-type,
+#saveForm label:first-of-type,
+#loadForm label:first-of-type {
+  margin-top: 0;
+}
+
+#loginForm input[type='text'],
+#loginForm input[type='password'],
+#saveForm input[type='text'],
+#saveForm select,
+#loadForm select {
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 0.35rem;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid #bbb;
+  border-radius: 6px;
+  font-size: 1rem;
+  color: #111;
+  background: #fff;
+}
+
+#loginForm input:focus,
+#saveForm input:focus,
+#saveForm select:focus,
+#loadForm select:focus {
+  outline: none;
+  border-color: #2c5aa0;
+  box-shadow: 0 0 0 2px rgba(44, 90, 160, 0.2);
+}
+
+.login-modal__actions {
+  margin-top: 1.1rem;
+  padding-top: 0.25rem;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}
+
+.login-modal__actions button {
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+
+.login-modal__actions button[type='button'] {
+  border: 1px solid #bbb;
+  background: #f0f0f0;
+  color: #222;
+}
+
+.login-modal__actions button[type='submit'] {
+  border: 1px solid #243f75;
+  background: #2c5aa0;
+  color: #fff;
+}
+
+.login-modal__actions button:hover {
+  filter: brightness(0.95);
+}
+
+.login-modal__error {
+  color: #b00020;
+  font-size: 0.85rem;
+  margin-top: 0.5rem;
+  min-height: 1.2em;
+}
+
+@media (max-width: 720px) {
+  .app-body {
+    flex-direction: column;
+  }
+
+  .app-sidebar {
+    width: auto;
+    border-right: none;
+    border-bottom: 1px solid #bbb;
+    max-height: 45vh;
+  }
+}

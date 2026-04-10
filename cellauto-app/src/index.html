@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="hu" class="app-shell">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="./hex.css">
+  <link rel="stylesheet" href="./style.css">
+  <link rel="stylesheet" href="./app.css">
+  <title>Borsos László (Sejt automatták)</title>
+  <script src="./config.js"></script>
+</head>
+
+<body class="app-shell">
+  <div class="app-root">
+    <header class="app-header">
+      <span class="app-header__user" id="authUser" hidden></span>
+      <div class="app-header__actions">
+        <button type="button" id="btnLogin">Bejelentkezés</button>
+        <button type="button" id="btnLogout" hidden>Kijelentkezés</button>
+      </div>
+    </header>
+
+    <div class="app-body">
+      <aside class="app-sidebar">
+        <h2>Beállítások</h2>
+        <p class="app-hint" id="wordListHint"></p>
+        <div id="wordListPickerWrap" class="app-picker" hidden>
+          <label for="wordListSelect">Szólista</label>
+          <select id="wordListSelect"></select>
+        </div>
+        <div id="colorListPickerWrap" class="app-picker" hidden>
+          <label for="colorListSelect">Színpaletta</label>
+          <select id="colorListSelect"></select>
+        </div>
+        <div id="saveLoadWrap" class="app-save-load" hidden>
+          <h3 class="app-save-load__title">Tábla mentés</h3>
+          <div class="app-save-load__btns">
+            <button type="button" id="btnOpenSaveModal" class="button">Mentés…</button>
+            <button type="button" id="btnOpenLoadModal" class="button">Betöltés…</button>
+          </div>
+        </div>
+        <div id="buttons">
+          <select name="mode" id="mode">
+            <option value='play' selected>Play mode</option>
+            <option value='test'>Test mode</option>
+          </select>
+          <button onclick='resetMatrix(0)' class="button">Reset</button>
+          <button onclick='goGenerate()' class="button chk" id="check">Play</button>
+          <button onclick='verify()' class="button" id="btnVerify">Verify</button>
+          <span>Delay: </span>
+          <select name="delay" id="delay">
+            <option value=0>none</option>
+            <option value=0.2 selected>0.2 sec</option>
+            <option value=0.5>0.5 sec</option>
+            <option value=1>1 sec</option>
+            <option value=2>2 sec</option>
+            <option value=5>5 sec</option>
+          </select>
+          <select name="neighbors" id="neighbors">
+            <option value="side" selected>Square Lateral Neighbor</option>
+            <option value="apex">Square Apex Neighbor</option>
+            <option value="hex">Hexagonal cellular grid</option>
+            <option value="life">Game of Life (square)</option>
+            <option value="life_hex">Game of Life (hex)</option>
+          </select>
+          <span>Max gen.: </span>
+          <select name="level" id="level">
+          </select>
+          <button onclick='help()' class="button">Help</button>
+          <br>
+          <div id="verifySectionDraw">
+            <span>Draw gen.: </span>
+            <form id="drawLevel">
+              <input type="radio" id="level1" name="drawLevel" value="1" checked>
+              <label for="level1">Gen. 1.</label>
+              <input type="radio" id="level2" name="drawLevel" value="2">
+              <label for="level2">Gen. 2.</label>
+              <input type="radio" id="level3" name="drawLevel" value="3">
+              <label for="level3">Gen. 3.</label>
+              <input type="radio" id="level4" name="drawLevel" value="4">
+              <label for="level4">Gen. 4.</label>
+              <input type="radio" id="level5" name="drawLevel" value="5">
+              <label for="level5">Gen. 5.</label>
+              <input type="radio" id="level6" name="drawLevel" value="6">
+              <label for="level6">Gen. 6.</label>
+            </form>
+          </div>
+          <div id="wordLevelWrap">
+            <form id="wordLevel"></form>
+          </div>
+          <select name="word_mode" id="word_mode">
+            <option value='select' selected>Select mode</option>
+            <option value='word'>Word mode</option>
+          </select>
+        </div>
+      </aside>
+
+      <main class="app-main">
+        <div class="container">
+          <div id="winMessage" style="display: none;">Gratulálok! Nyertél!</div>
+          <div id="loserMessage" style="display: none;">Sajnálom! Vesztettél!</div>
+          <div id="boardDiv">
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <div class="login-backdrop" id="saveBackdrop" aria-hidden="true">
+    <div class="login-modal" role="dialog" aria-labelledby="saveModalTitle">
+      <h3 id="saveModalTitle">Tábla mentése</h3>
+      <div id="saveForm">
+        <label for="saveGroupSelect">Csoport</label>
+        <select id="saveGroupSelect"></select>
+        <label for="saveNewGroupName">Új csoport neve (opcionális)</label>
+        <input type="text" id="saveNewGroupName" placeholder="Ha üres, a fenti csoportba ment">
+        <label for="saveNameInput">Mentés neve</label>
+        <input type="text" id="saveNameInput" required maxlength="255" placeholder="pl. Feladat 1">
+        <div class="login-modal__error" id="saveError"></div>
+        <div class="login-modal__actions">
+          <button type="button" id="saveCancel">Mégse</button>
+          <button type="button" id="saveSubmit">Mentés</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="login-backdrop" id="loadBackdrop" aria-hidden="true">
+    <div class="login-modal" role="dialog" aria-labelledby="loadModalTitle">
+      <h3 id="loadModalTitle">Tábla betöltése</h3>
+      <div id="loadForm">
+        <label for="loadGroupSelect">Csoport</label>
+        <select id="loadGroupSelect"></select>
+        <label for="loadSaveSelect">Mentés</label>
+        <select id="loadSaveSelect"></select>
+        <div class="login-modal__error" id="loadError"></div>
+        <div class="login-modal__actions">
+          <button type="button" id="loadCancel">Mégse</button>
+          <button type="button" id="loadSubmit">Betöltés</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="login-backdrop" id="loginBackdrop" aria-hidden="true">
+    <div class="login-modal" role="dialog" aria-labelledby="loginTitle">
+      <h3 id="loginTitle">Bejelentkezés</h3>
+      <form id="loginForm">
+        <label for="loginField">E-mail vagy felhasználónév</label>
+        <input type="text" id="loginField" name="login" autocomplete="username" required>
+        <label for="loginPassword">Jelszó</label>
+        <input type="password" id="loginPassword" name="password" autocomplete="current-password" required>
+        <div class="login-modal__error" id="loginError"></div>
+        <div class="login-modal__actions">
+          <button type="button" id="loginCancel">Mégse</button>
+          <button type="submit">Belépés</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    window.__CELLAUTO_DEFER_INIT__ = true;
+  </script>
+  <script src="./api.js"></script>
+  <script src="./script.js"></script>
+  <script src="./app.js"></script>
+  <script src="./board-save.js"></script>
+</body>
+
+</html>

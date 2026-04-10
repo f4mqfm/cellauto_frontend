@@ -1,0 +1,159 @@
+.hexagon-wrapper {
+  background-color: gray;
+  /* background-color: #dddddd; */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  }
+  
+  .hexagon-wrapper__hexagon-container {
+  width: 46.5vw;
+  display: flex;
+  flex-wrap: wrap;
+  transform: skew(0deg, 0deg);
+  }
+  
+  .hexagon__outer {
+  margin-top: -0.43vw;
+  transition: all 0.3s;
+  -webkit-clip-path: polygon(
+  0 25%,
+  50% 0,
+  100% 25%,
+  100% 75%,
+  50% 100%,
+  0 75%
+  );
+  clip-path: polygon(
+  0 25%,
+  50% 0,
+  100% 25%,
+  100% 75%,
+  50% 100%,
+  0 75%
+  );
+  width: 3.22%;
+  height: 1.8vw;
+  /* height: 1.73%; */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  }
+  
+  .hexagon__outer:hover {
+  transform: scale(0.9) rotate(2deg);
+  }
+  
+  .hexagon__outer:nth-child(-n + 31) {
+  margin-top: 0;
+  }
+  
+  .hexagon__outer:nth-child(61n + 32) {
+  margin-left: 0.75vw;
+  }
+  
+  .hexagon__inner {
+  background-color: #ffffff;
+  color: #284646;
+  -webkit-clip-path: polygon(
+  0 25%,
+  50% 0,
+  100% 25%,
+  100% 75%,
+  50% 100%,
+  0 75%
+  );
+  clip-path: polygon(
+  0 25%,
+  50% 0,
+  100% 25%,
+  100% 75%,
+  50% 100%,
+  0 75%
+  );
+  width: 93%;
+  height: 93%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 7px; 
+  text-align: center;
+  }
+  
+  @media (max-width: 900px) {
+  
+  .hexagon-wrapper__hexagon-container {
+  width: 45vw;
+  }
+  
+  /* reset */
+  .hexagon__outer:nth-child(-n + 31) {
+  margin-top: -0.43vw;
+  }
+  
+  /* reset */
+  .hexagon__outer:nth-child(61n + 32) {
+  margin-left: 0;
+  }
+  
+  .hexagon__outer:nth-child(-n + 30) {
+  margin-top: 0;
+  }
+  
+  .hexagon__outer:nth-child(59n + 31) {
+  margin-left: 0.75vw;
+  }
+  }
+  
+  @media (max-width: 700px) {
+  html {
+  font-size: 50%;
+  }
+  
+  .hexagon-wrapper__hexagon-container {
+  width: 43.5vw;
+  }
+  
+  /* reset */
+  .hexagon__outer:nth-child(-n + 30) {
+  margin-top: -0.43vw;
+  }
+  
+  /* reset */
+  .hexagon__outer:nth-child(59n + 31) {
+  margin-left: 0;
+  }
+  
+  .hexagon__outer:nth-child(-n + 29) {
+  margin-top: 0;
+  }
+  
+  .hexagon__outer:nth-child(57n + 30) {
+  margin-left: 0.75vw;
+  }
+  }
+  
+  @media (max-width: 500px) {
+  
+  .hexagon-wrapper__hexagon-container {
+  width: 42vw;
+  }
+  
+  /* reset */
+  .hexagon__outer:nth-child(-n + 29) {
+  margin-top: -0.43vw;
+  }
+  
+  /* reset */
+  .hexagon__outer:nth-child(57n + 30) {
+  margin-left: 0;
+  }
+  
+  .hexagon__outer:nth-child(-n + 28) {
+  margin-top: 0;
+  }
+  
+  .hexagon__outer:nth-child(55n + 29) {
+  margin-left: 0.75vw;
+  }
+  }
