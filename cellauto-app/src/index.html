@@ -4,11 +4,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="stylesheet" href="./hex.css">
-  <link rel="stylesheet" href="./style.css">
-  <link rel="stylesheet" href="./app.css">
+  <link rel="stylesheet" href="./hex.css?v=5">
+  <link rel="stylesheet" href="./style.css?v=5">
+  <link rel="stylesheet" href="./app.css?v=5">
   <title>Borsos László (Sejt automatták)</title>
-  <script src="./config.js"></script>
+  <script src="./config.js?v=5"></script>
 </head>
 
 <body class="app-shell">
@@ -25,50 +25,147 @@
       <aside class="app-sidebar">
         <h2>Beállítások</h2>
         <p class="app-hint" id="wordListHint"></p>
-        <div id="wordListPickerWrap" class="app-picker" hidden>
-          <label for="wordListSelect">Szólista</label>
-          <select id="wordListSelect"></select>
-        </div>
         <div id="colorListPickerWrap" class="app-picker" hidden>
           <label for="colorListSelect">Színpaletta</label>
           <select id="colorListSelect"></select>
         </div>
-        <div id="saveLoadWrap" class="app-save-load" hidden>
-          <h3 class="app-save-load__title">Tábla mentés</h3>
-          <div class="app-save-load__btns">
-            <button type="button" id="btnOpenSaveModal" class="button">Mentés…</button>
-            <button type="button" id="btnOpenLoadModal" class="button">Betöltés…</button>
+        <div id="wordListPickerWrap" class="app-picker" hidden>
+          <label for="wordListSelect">Szólista</label>
+          <select id="wordListSelect"></select>
+          <div id="wordLevelWrap">
+          <form id="wordLevel"></form>
           </div>
         </div>
-        <div id="buttons">
-          <select name="mode" id="mode">
-            <option value='play' selected>Play mode</option>
-            <option value='test'>Test mode</option>
-          </select>
-          <button onclick='resetMatrix(0)' class="button">Reset</button>
-          <button onclick='goGenerate()' class="button chk" id="check">Play</button>
-          <button onclick='verify()' class="button" id="btnVerify">Verify</button>
-          <span>Delay: </span>
-          <select name="delay" id="delay">
-            <option value=0>none</option>
-            <option value=0.2 selected>0.2 sec</option>
-            <option value=0.5>0.5 sec</option>
-            <option value=1>1 sec</option>
-            <option value=2>2 sec</option>
-            <option value=5>5 sec</option>
-          </select>
+        <div class="app-picker">
+          <label>Méret és nagyítás</label>
+          <div class="size-zoom-row">
+            <div class="size-zoom-col">
+              <select id="boardSizeSelect">
+                <option value="10">10 x 10</option>
+                <option value="15">15 x 15</option>
+                <option value="20">20 x 20</option>
+                <option value="30" selected>30 x 30</option>
+                <option value="40">40 x 40</option>
+                <option value="50">50 x 50</option>
+                <option value="60">60 x 60</option>
+                <option value="100">100 x 100</option>
+                <option value="200">200 x 200</option>
+              </select>
+            </div>
+            <div class="size-zoom-col">
+              <select id="boardZoomSelect">
+                <option value="0.25">0.25x</option>
+                <option value="0.5">0.5x</option>
+                <option value="1" selected>Normal</option>
+                <option value="1.5">1.5x</option>
+                <option value="2">2x</option>
+                <option value="3">3x</option>
+                <option value="4">4x</option>
+                <option value="5">5x</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <div class="app-picker mode-picker">
+          <label>Mód</label>
+          <div class="mode-toggle" id="wordModeToggle">
+            <input type="radio" id="wordModeSelect" name="wordModeToggle" value="select" checked>
+            <label for="wordModeSelect">Select mode</label>
+            <input type="radio" id="wordModeWord" name="wordModeToggle" value="word">
+            <label for="wordModeWord">Word mode</label>
+          </div>
+          <label for="wordQuickPick" class="inline-check">
+            <input type="checkbox" id="wordQuickPick">
+            Gyors szóválasztó (helyi menü)
+          </label>
+          <label for="neighbors">Generálási mód</label>
           <select name="neighbors" id="neighbors">
             <option value="side" selected>Square Lateral Neighbor</option>
             <option value="apex">Square Apex Neighbor</option>
             <option value="hex">Hexagonal cellular grid</option>
-            <option value="life">Game of Life (square)</option>
-            <option value="life_hex">Game of Life (hex)</option>
+            <option value="life">Game of Life - B3/S23</option>
+            <option value="life_hex">Game of Life - B36/S23 (HighLife)</option>
           </select>
-          <span>Max gen.: </span>
-          <select name="level" id="level">
+          <!-- www: régi cache-elt HTML-ből hiányozhat a hex opció; pótold, ha nincs -->
+          <script>
+            (function () {
+              var sel = document.getElementById('neighbors');
+              if (!sel) return;
+              var need = [
+                ['side', 'Square Lateral Neighbor'],
+                ['apex', 'Square Apex Neighbor'],
+                ['hex', 'Hexagonal cellular grid'],
+                ['life', 'Game of Life - B3/S23'],
+                ['life_hex', 'Game of Life - B36/S23 (HighLife)']
+              ];
+              var have = {};
+              for (var i = 0; i < sel.options.length; i++) { have[sel.options[i].value] = true; }
+              for (var j = 0; j < need.length; j++) {
+                if (have[need[j][0]]) continue;
+                var o = document.createElement('option');
+                o.value = need[j][0];
+                o.textContent = need[j][1];
+                sel.appendChild(o);
+                have[need[j][0]] = true;
+              }
+            })();
+          </script>
+          <select name="word_mode" id="word_mode" class="visually-hidden" aria-hidden="true" tabindex="-1">
+            <option value='select' selected>Select mode</option>
+            <option value='word'>Word mode</option>
           </select>
-          <button onclick='help()' class="button">Help</button>
-          <br>
+        </div>
+        <h3 class="app-save-load__title">Funkciók</h3>
+        <div id="buttons">
+          <div class="mode-toggle" id="playModeToggle">
+            <input type="radio" id="playModePlay" name="playModeToggle" value="play" checked>
+            <label for="playModePlay">Play mode</label>
+            <input type="radio" id="playModeTest" name="playModeToggle" value="test">
+            <label for="playModeTest">Test mode</label>
+          </div>
+          <select name="mode" id="mode" class="visually-hidden" aria-hidden="true" tabindex="-1">
+            <option value='play' selected>Play mode</option>
+            <option value='test'>Test mode</option>
+          </select>
+          <div class="control-row control-row--actions">
+            <button onclick='resetMatrix(0)' class="button" id="btnReset">Reset</button>
+            <button onclick='goGenerate()' class="button chk" id="check">Play</button>
+            <button type="button" class="button" id="btnStop">Stop</button>
+            <button type="button" class="button" id="btnStepBack">&lt;&lt;</button>
+            <button type="button" class="button" id="btnStepForward">&gt;&gt;</button>
+          </div>
+          <div class="control-row control-row--actions">
+            <button onclick='verify()' class="button" id="btnVerify">Verify</button>
+          </div>
+          <div class="control-row control-row--double">
+            <span>Delay:</span>
+            <select name="delay" id="delay">
+              <option value=0>none</option>
+              <option value=0.2 selected>0.2 sec</option>
+              <option value=0.5>0.5 sec</option>
+              <option value=1>1 sec</option>
+              <option value=2>2 sec</option>
+              <option value=5>5 sec</option>
+            </select>
+            <span>Max gen.:</span>
+            <select name="level" id="level">
+            </select>
+            <!-- www: sokszor régi cache-elt script.js — ez már a parse alatt feltölti 1–100-ig, később script.js újraírja -->
+            <script>
+              (function () {
+                var s = document.getElementById('level');
+                if (!s || s.options.length > 0) return;
+                var def = 10;
+                for (var i = 1; i <= 100; i++) {
+                  var o = document.createElement('option');
+                  o.value = String(i);
+                  o.textContent = String(i);
+                  if (i === def) o.selected = true;
+                  s.appendChild(o);
+                }
+              })();
+            </script>
+          </div>
           <div id="verifySectionDraw">
             <span>Draw gen.: </span>
             <form id="drawLevel">
@@ -86,13 +183,13 @@
               <label for="level6">Gen. 6.</label>
             </form>
           </div>
-          <div id="wordLevelWrap">
-            <form id="wordLevel"></form>
+        </div>
+        <div id="saveLoadWrap" class="app-save-load" hidden>
+          <h3 class="app-save-load__title">Tábla mentés</h3>
+          <div class="app-save-load__btns">
+            <button type="button" id="btnOpenSaveModal" class="button">Mentés…</button>
+            <button type="button" id="btnOpenLoadModal" class="button">Betöltés…</button>
           </div>
-          <select name="word_mode" id="word_mode">
-            <option value='select' selected>Select mode</option>
-            <option value='word'>Word mode</option>
-          </select>
         </div>
       </aside>
 
@@ -122,6 +219,10 @@
         </select>
         <label for="saveNameInput">Mentés neve</label>
         <input type="text" id="saveNameInput" required maxlength="255" placeholder="pl. Feladat 1">
+        <label for="saveAsIcon">
+          <input type="checkbox" id="saveAsIcon">
+          Ikon mentés (betöltéskor ráhelyezés, méret/nagyítás megtartása)
+        </label>
         <div class="login-modal__error" id="saveError"></div>
         <div class="login-modal__actions">
           <button type="button" id="saveCancel">Mégse</button>
@@ -171,10 +272,10 @@
   <script>
     window.__CELLAUTO_DEFER_INIT__ = true;
   </script>
-  <script src="./api.js"></script>
-  <script src="./script.js"></script>
-  <script src="./app.js"></script>
-  <script src="./board-save.js"></script>
+  <script src="./api.js?v=5"></script>
+  <script src="./script.js?v=5"></script>
+  <script src="./app.js?v=5"></script>
+  <script src="./board-save.js?v=5"></script>
 </body>
 
 </html>

@@ -1,0 +1,7 @@
+# Apache: a fő HTML ne ragadjon agresszív cache-ben (www vs lokális eltérés).
+# mod_headers szükséges; nincs modul → a blokkot hagyjuk ki vagy kapcsold be a szerveren.
+<IfModule mod_headers.c>
+  <Files "index.html">
+    Header set Cache-Control "no-store, no-cache, must-revalidate, max-age=0"
+  </Files>
+</IfModule>

@@ -1,13 +1,17 @@
 // 2024 Borsos László F4MQFM (lborsos@gmail.com)
-const viewRow = 31, viewCol = 31;
-const maxRow = 100, maxCol = 100;
-const elements = 946;
-const maxCycle = 30;
+let viewRow = 30, viewCol = 30;
+const maxRow = 220, maxCol = 220;
+const maxCycle = 100;
 const currentCycle = 10;
 var matrix = Array.from({ length: maxRow }, () => Array.from({ length: maxCol }, () => 0));
 var matrixVerify = Array.from({ length: maxRow }, () => Array.from({ length: maxCol }, () => 0));
 var matrixVerifyChecked = Array.from({ length: maxRow }, () => Array.from({ length: maxCol }, () => 0));
-const boardDiv = document.getElementById("boardDiv");
+
+/** Mindig frissen kérjük le: ha a script a #boardDiv előtt fut (# → null), később már jó. */
+function boardDivEl() {
+    return document.getElementById('boardDiv');
+}
+
 const nrOfColors = 6;
 var method = '';
 var maxLevel = 10;
@@ -17,6 +21,19 @@ var delay = 0;
 var board = 'square';
 var modePT = 'play';
 var errorCount = 0;
+const STORAGE_BOARD_SIZE = 'cellauto_board_size';
+const STORAGE_BOARD_ZOOM = 'cellauto_board_zoom';
+let boardZoom = 1;
+let isRunning = false;
+let generationHistory = [];
+let pendingLoadedPlacement = null;
+let pendingPreviewCells = [];
+let isPointerDown = false;
+let dragSelectActive = false;
+let dragSelectValue = 0;
+let wordQuickPickerEl = null;
+let wordQuickPickerOpenedAt = 0;
+let cellHoverPreviewEl = null;
 
 /** 6 szint szólistái; az app.js tölti API-ból bejelentkezés után */
 var matrixWord = Array.from({ length: 6 }, () => []);
@@ -28,44 +45,55 @@ function createHexTable(create = true) {
         let div2 = document.createElement('div');
         div2.classList.add('hexagon-wrapper__hexagon-container');
         div1.appendChild(div2);
-        var xx = 0, yy = 0;
-        for (let i = 0; i < elements; i++) {
-            var divOut = document.createElement('div');
-            divOut.classList.add("hexagon__outer");
-            var divIn = document.createElement('div');
-            divIn.innerHTML = "&nbsp;";
-            divIn.classList.add("hexagon__inner");
-            divIn.id = 'x' + String(xx).padStart(2, '0') + String(yy).padStart(2, '0');
-            divOut.appendChild(divIn);
-            div2.appendChild(divOut);
-            xx++;
-            if (xx == 31 || ((yy % 2 != 0) && (xx == 30))) {
-                xx = 0;
-                yy++;
+        for (let yy = 0; yy < viewRow; yy++) {
+            let row = document.createElement('div');
+            row.classList.add('hexagon-row');
+            if (yy % 2 !== 0) row.classList.add('hexagon-row--offset');
+            const xMax = viewCol - ((yy % 2 !== 0) ? 1 : 0);
+            for (let xx = 0; xx < xMax; xx++) {
+                var divOut = document.createElement('div');
+                divOut.classList.add("hexagon__outer");
+                var divIn = document.createElement('div');
+                divIn.innerHTML = "&nbsp;";
+                divIn.classList.add("hexagon__inner");
+                divIn.id = 'x' + String(xx).padStart(2, '0') + String(yy).padStart(2, '0');
+                divIn.dataset.x = String(xx);
+                divIn.dataset.y = String(yy);
+                divOut.appendChild(divIn);
+                row.appendChild(divOut);
             }
+            div2.appendChild(row);
         }
-        boardDiv.appendChild(div1);
+        var bd = boardDivEl();
+        if (!bd) return;
+        bd.appendChild(div1);
     } else {
-        boardDiv.innerHTML = '';
+        var bd0 = boardDivEl();
+        if (bd0) bd0.innerHTML = '';
     }
 }
 
 
 function createSquareTable(create = true) {
     if (create) {
+        var bd = boardDivEl();
+        if (!bd) return;
         var table = document.createElement('table');
         for (let i = 0; i < viewRow; i++) {
             var tr = document.createElement('tr');
             for (let j = 0; j < viewCol; j++) {
                 var td = document.createElement('td');
                 td.id = 'x' + String(j).padStart(2, '0') + String(i).padStart(2, '0');
+                td.dataset.x = String(j);
+                td.dataset.y = String(i);
                 tr.appendChild(td);
             }
             table.appendChild(tr);
         }
-        boardDiv.appendChild(table);
+        bd.appendChild(table);
     } else {
-        boardDiv.innerHTML = '';
+        var bd1 = boardDivEl();
+        if (bd1) bd1.innerHTML = '';
     }
 }
 
@@ -73,7 +101,10 @@ function addClickListenersSquare() {
     for (let i = 0; i < viewRow; i++) {
         for (let j = 0; j < viewCol; j++) {
             let cell = document.getElementById('x' + String(j).padStart(2, '0') + String(i).padStart(2, '0'));
-            cell.addEventListener('click', function () { toggleCell(j, i); });
+            cell.addEventListener('mousedown', function (ev) { handleCellMouseDown(ev, j, i); });
+            cell.addEventListener('mouseenter', function () { handleCellMouseEnter(j, i); });
+            cell.addEventListener('mouseenter', function () { showCellHoverPreview(j, i); });
+            cell.addEventListener('mouseleave', hideCellHoverPreview);
         }
     }
 }
@@ -83,10 +114,160 @@ function addClickListenersHex() {
         for (let j = 0; j < viewCol; j++) {
             if (!(i % 2 != 0 && j == viewCol - 1)) {
                 let cell = document.getElementById('x' + String(j).padStart(2, '0') + String(i).padStart(2, '0'));
-                cell.addEventListener('click', function () { toggleCell(j, i); });
+                cell.addEventListener('mousedown', function (ev) { handleCellMouseDown(ev, j, i); });
+                cell.addEventListener('mouseenter', function () { handleCellMouseEnter(j, i); });
+                cell.addEventListener('mouseenter', function () { showCellHoverPreview(j, i); });
+                cell.addEventListener('mouseleave', hideCellHoverPreview);
             }
         }
     }
+}
+
+function hideCellHoverPreview() {
+    if (!cellHoverPreviewEl) return;
+    cellHoverPreviewEl.classList.remove('is-visible');
+}
+
+function showCellHoverPreview(col, row) {
+    const cell = document.getElementById('x' + String(col).padStart(2, '0') + String(row).padStart(2, '0'));
+    if (!cell) return;
+    const txt = (cell.textContent || '')
+        .replace(/\u00a0/g, '')
+        .replace(/[\r\n]+/g, '')
+        .trim();
+    if (!txt) {
+        hideCellHoverPreview();
+        return;
+    }
+
+    if (!cellHoverPreviewEl) {
+        cellHoverPreviewEl = document.createElement('div');
+        cellHoverPreviewEl.className = 'cell-hover-preview';
+        document.body.appendChild(cellHoverPreviewEl);
+    }
+    cellHoverPreviewEl.textContent = txt;
+    const r = cell.getBoundingClientRect();
+    let left = r.left + r.width / 2;
+    let top = r.top - 8;
+    cellHoverPreviewEl.style.left = Math.max(8, Math.min(left, window.innerWidth - 8)) + 'px';
+    cellHoverPreviewEl.style.top = Math.max(8, top) + 'px';
+    cellHoverPreviewEl.classList.add('is-visible');
+}
+
+function currentDrawValue() {
+    let drawLevel = document.querySelector('input[name="drawLevel"]:checked');
+    let mode = document.getElementById('mode').value;
+    let level = drawLevel ? parseInt(drawLevel.value, 10) : 1;
+    return mode == 'play' ? 1 : level;
+}
+
+function handleCellMouseDown(ev, col, row) {
+    if (pendingLoadedPlacement) {
+        if (ev) ev.preventDefault();
+        return;
+    }
+    isPointerDown = true;
+    const clickMode = document.getElementById('word_mode').value;
+    if (clickMode !== 'select') {
+        toggleCell(col, row);
+        return;
+    }
+    dragSelectActive = true;
+    dragSelectValue = matrix[col][row] === 0 ? currentDrawValue() : 0;
+    matrix[col][row] = dragSelectValue;
+    reDrawTable();
+    if (ev) ev.preventDefault();
+}
+
+function handleCellMouseEnter(col, row) {
+    if (!isPointerDown || !dragSelectActive) return;
+    const clickMode = document.getElementById('word_mode').value;
+    if (clickMode !== 'select') return;
+    if (matrix[col][row] !== dragSelectValue) {
+        matrix[col][row] = dragSelectValue;
+        reDrawTable();
+    }
+}
+
+function isWordQuickPickEnabled() {
+    var ch = document.getElementById('wordQuickPick');
+    return !!(ch && ch.checked);
+}
+
+function closeWordQuickPicker() {
+    if (wordQuickPickerEl && wordQuickPickerEl.parentNode) {
+        wordQuickPickerEl.parentNode.removeChild(wordQuickPickerEl);
+    }
+    wordQuickPickerEl = null;
+}
+
+function applyWordToCell(col, row, value) {
+    let cell = document.getElementById('x' + String(col).padStart(2, '0') + String(row).padStart(2, '0'));
+    if (!cell) return;
+    if (!value || value === '---') {
+        cell.innerHTML = '&nbsp;';
+        return;
+    }
+    cell.innerHTML = insertLineBreaks(value);
+}
+
+function openWordQuickPicker(col, row) {
+    const generation = matrix[col][row];
+    const source = document.getElementById('lev' + generation);
+    if (!source) return;
+
+    const targetCell = document.getElementById('x' + String(col).padStart(2, '0') + String(row).padStart(2, '0'));
+    if (!targetCell) return;
+
+    closeWordQuickPicker();
+
+    const box = document.createElement('div');
+    box.className = 'word-quick-picker';
+
+    const sel = document.createElement('select');
+    sel.size = Math.min(8, Math.max(2, source.options.length));
+    for (let i = 0; i < source.options.length; i++) {
+        const o = source.options[i];
+        const no = document.createElement('option');
+        no.value = o.value;
+        no.textContent = o.textContent;
+        if (o.selected) no.selected = true;
+        sel.appendChild(no);
+    }
+
+    sel.addEventListener('change', function () {
+        applyWordToCell(col, row, sel.value);
+        closeWordQuickPicker();
+    });
+
+    sel.addEventListener('keydown', function (ev) {
+        if (ev.key === 'Escape') {
+            ev.preventDefault();
+            closeWordQuickPicker();
+        }
+    });
+
+    box.appendChild(sel);
+    document.body.appendChild(box);
+    wordQuickPickerEl = box;
+    wordQuickPickerOpenedAt = Date.now();
+
+    const r = targetCell.getBoundingClientRect();
+    const margin = 6;
+    let left = r.right + margin;
+    let top = r.top;
+    if (left + box.offsetWidth > window.innerWidth - margin) {
+        left = Math.max(margin, r.left - box.offsetWidth - margin);
+    }
+    if (top + box.offsetHeight > window.innerHeight - margin) {
+        top = Math.max(margin, window.innerHeight - box.offsetHeight - margin);
+    }
+    box.style.left = left + 'px';
+    box.style.top = top + 'px';
+
+    setTimeout(function () {
+        sel.focus();
+    }, 0);
 }
 
 function toggleCell(col, row) {
@@ -107,17 +288,17 @@ function toggleCell(col, row) {
         reDrawTable();
     } else {
         if (matrix[col][row] > 0 && matrix[col][row] <= matrixWord.length) {
+            if (isWordQuickPickEnabled()) {
+                openWordQuickPicker(col, row);
+                return;
+            }
 
             const firstSelect = document.getElementById(`lev${matrix[col][row]}`);
+            if (!firstSelect) return;
             const selectedIndex = firstSelect.selectedIndex;
             const selectedOption = firstSelect.options[selectedIndex];
-            const selectedValue = selectedOption.value;
-            //            const rowIndex = selectedOption.dataset.rowIndex;
-            let cell = document.getElementById('x' + String(col).padStart(2, '0') + String(row).padStart(2, '0'));
-            if (selectedValue != '---') {
-                //                cell.innerHTML=selectedValue;
-                cell.innerHTML = insertLineBreaks(selectedValue);
-            }
+            const selectedValue = selectedOption ? selectedOption.value : '---';
+            applyWordToCell(col, row, selectedValue);
         }
         // word mode
     }
@@ -222,7 +403,8 @@ function genMatrix(ver = false) {
 
 function setLevel(level, ver) {
     for (let i = 0; i < viewRow; i++) {
-        for (let j = 0; j < viewCol; j++) {
+        const xMax = viewCol - ((board === 'hex' && (i % 2 !== 0)) ? 1 : 0);
+        for (let j = 0; j < xMax; j++) {
             if (ver) {
                 if (matrixVerify[j][i] == 0 && checkIfNewChildIsBorn(j, i, level, method, matrixVerify)) {
                     matrixVerify[j][i] = level;
@@ -236,87 +418,64 @@ function setLevel(level, ver) {
     }
 }
 
+function isValidBoardCell(x, y, boardType) {
+    if (x < 0 || y < 0 || x >= viewCol || y >= viewRow) return false;
+    if (boardType === 'hex' && (y % 2 !== 0) && x === viewCol - 1) return false;
+    return true;
+}
+
+function getBoardValue(mat, x, y, boardType) {
+    if (!isValidBoardCell(x, y, boardType)) return 0;
+    return matrixValue(mat[x] && mat[x][y]);
+}
+
 function checkIfNewChildIsBorn(col, row, level, method, mat) {
     let neighborsPreviousLevel = 0;
     let neighborsPrePreviousLevel = 0;
     switch (method) {
         case 'side': {
-            if (col > 0) {
-                const cell = mat[col - 1][row];
-                neighborsPreviousLevel += cell == level - 1 ? 1 : 0;
-                neighborsPrePreviousLevel += cell < level - 1 && cell != 0 ? 1 : 0;
-            }
-            if (col < viewCol) {
-                const cell = mat[col + 1][row];
-                neighborsPreviousLevel += cell == level - 1 ? 1 : 0;
-                neighborsPrePreviousLevel += cell < level - 1 && cell != 0 ? 1 : 0;
-            }
-            if (row > 0) {
-                const cell = mat[col][row - 1];
-                neighborsPreviousLevel += cell == level - 1 ? 1 : 0;
-                neighborsPrePreviousLevel += cell < level - 1 && cell != 0 ? 1 : 0;
-            }
-            if (row < viewRow) {
-                const cell = mat[col][row + 1];
+            const sideNeighbors = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+            for (const [dx, dy] of sideNeighbors) {
+                const cell = getBoardValue(mat, col + dx, row + dy, board === 'hex' ? 'hex' : 'square');
                 neighborsPreviousLevel += cell == level - 1 ? 1 : 0;
                 neighborsPrePreviousLevel += cell < level - 1 && cell != 0 ? 1 : 0;
             }
         };
             break;
         case 'apex': {
-            if (!(col == 0 || row == 0)) {
-                const cell = mat[col - 1][row - 1];
-                neighborsPreviousLevel += cell == level - 1 ? 1 : 0;
-                neighborsPrePreviousLevel += cell < level - 1 && cell != 0 ? 1 : 0;
-            }
-            if (!(col == viewCol || row == viewRow)) {
-                const cell = mat[col + 1][row + 1];
-                neighborsPreviousLevel += cell == level - 1 ? 1 : 0;
-                neighborsPrePreviousLevel += cell < level - 1 && cell != 0 ? 1 : 0;
-            }
-            if (!(col == 0 || row == viewRow)) {
-                const cell = mat[col - 1][row + 1];
-                neighborsPreviousLevel += cell == level - 1 ? 1 : 0;
-                neighborsPrePreviousLevel += cell < level - 1 && cell != 0 ? 1 : 0;
-            }
-            if (!(col == viewCol || row == 0)) {
-                const cell = mat[col + 1][row - 1];
+            const apexNeighbors = [[-1, -1], [1, 1], [-1, 1], [1, -1]];
+            for (const [dx, dy] of apexNeighbors) {
+                const cell = getBoardValue(mat, col + dx, row + dy, board === 'hex' ? 'hex' : 'square');
                 neighborsPreviousLevel += cell == level - 1 ? 1 : 0;
                 neighborsPrePreviousLevel += cell < level - 1 && cell != 0 ? 1 : 0;
             }
             break;
         }
         case 'hex': {
-            let cell = matrixValue(mat[col][row - 1]);
+            let cell = getBoardValue(mat, col, row - 1, 'hex');
             neighborsPreviousLevel += cell == level - 1 ? 1 : 0;
             neighborsPrePreviousLevel += cell < level - 1 && cell != 0 ? 1 : 0;
-            cell = matrixValue(mat[col + 1][row]);
+            cell = getBoardValue(mat, col + 1, row, 'hex');
             neighborsPreviousLevel += cell == level - 1 ? 1 : 0;
             neighborsPrePreviousLevel += cell < level - 1 && cell != 0 ? 1 : 0;
-            cell = matrixValue(mat[col][row + 1]);
+            cell = getBoardValue(mat, col, row + 1, 'hex');
             neighborsPreviousLevel += cell == level - 1 ? 1 : 0;
             neighborsPrePreviousLevel += cell < level - 1 && cell != 0 ? 1 : 0;
-            if (col > 0) {
-                cell = matrixValue(mat[col - 1][row]);
-                neighborsPreviousLevel += cell == level - 1 ? 1 : 0;
-                neighborsPrePreviousLevel += cell < level - 1 && cell != 0 ? 1 : 0;
-            }
+            cell = getBoardValue(mat, col - 1, row, 'hex');
+            neighborsPreviousLevel += cell == level - 1 ? 1 : 0;
+            neighborsPrePreviousLevel += cell < level - 1 && cell != 0 ? 1 : 0;
             if (row % 2 == 0) {
-                if (col > 0) {
-                    cell = matrixValue(mat[col - 1][row - 1]);
-                    neighborsPreviousLevel += cell == level - 1 ? 1 : 0;
-                    neighborsPrePreviousLevel += cell < level - 1 && cell != 0 ? 1 : 0;
-                }
-                if (col > 0) {
-                    cell = matrixValue(mat[col - 1][row + 1]);
-                    neighborsPreviousLevel += cell == level - 1 ? 1 : 0;
-                    neighborsPrePreviousLevel += cell < level - 1 && cell != 0 ? 1 : 0;
-                }
-            } else {
-                cell = matrixValue(mat[col + 1][row + 1]);
+                cell = getBoardValue(mat, col - 1, row - 1, 'hex');
                 neighborsPreviousLevel += cell == level - 1 ? 1 : 0;
                 neighborsPrePreviousLevel += cell < level - 1 && cell != 0 ? 1 : 0;
-                cell = matrixValue(mat[col + 1][row - 1]);
+                cell = getBoardValue(mat, col - 1, row + 1, 'hex');
+                neighborsPreviousLevel += cell == level - 1 ? 1 : 0;
+                neighborsPrePreviousLevel += cell < level - 1 && cell != 0 ? 1 : 0;
+            } else {
+                cell = getBoardValue(mat, col + 1, row + 1, 'hex');
+                neighborsPreviousLevel += cell == level - 1 ? 1 : 0;
+                neighborsPrePreviousLevel += cell < level - 1 && cell != 0 ? 1 : 0;
+                cell = getBoardValue(mat, col + 1, row - 1, 'hex');
                 neighborsPreviousLevel += cell == level - 1 ? 1 : 0;
                 neighborsPrePreviousLevel += cell < level - 1 && cell != 0 ? 1 : 0;
             }
@@ -365,19 +524,18 @@ function countNeighborsHex(col, row, mat) {
     return c;
 }
 
-function stepGameOfLife(isHex) {
+function stepGameOfLife(useHighLifeRule) {
     const next = Array.from({ length: maxRow }, () => Array.from({ length: maxCol }, () => 0));
 
     for (let y = 0; y < viewRow; y++) {
         const xMax = viewCol - ((y % 2 !== 0) && (board === 'hex'));
         for (let x = 0; x < xMax; x++) {
-            const n = isHex ? countNeighborsHex(x, y, matrix) : countNeighborsSquare(x, y, matrix);
+            const n = countNeighborsSquare(x, y, matrix);
             const alive = (matrix[x][y] === 1);
 
-            // Classic GoL szabály: B3/S23 (square)
-            // Hexnél nincs “klasszikus”; itt is B3/S23-at használunk, mert egyszerű.
+            // B3/S23 (Conway) vs B36/S23 (HighLife)
             if (alive) next[x][y] = (n === 2 || n === 3) ? 1 : 0;
-            else next[x][y] = (n === 3) ? 1 : 0;
+            else next[x][y] = (n === 3 || (useHighLifeRule && n === 6)) ? 1 : 0;
         }
     }
 
@@ -387,28 +545,231 @@ function stepGameOfLife(isHex) {
     }
 }
 
+function captureBoardSnapshot() {
+    const cells = [];
+    for (let y = 0; y < viewRow; y++) {
+        const xMax = viewCol - ((board === 'hex' && (y % 2 !== 0)) ? 1 : 0);
+        for (let x = 0; x < xMax; x++) {
+            cells.push(matrix[x][y] | 0);
+        }
+    }
+    return {
+        viewRow: viewRow,
+        viewCol: viewCol,
+        board: board,
+        cells: cells,
+    };
+}
+
+function applyBoardSnapshot(snapshot) {
+    if (!snapshot || !snapshot.cells) return;
+    if (snapshot.viewRow !== viewRow || snapshot.viewCol !== viewCol || snapshot.board !== board) return;
+    let idx = 0;
+    for (let y = 0; y < viewRow; y++) {
+        const xMax = viewCol - ((board === 'hex' && (y % 2 !== 0)) ? 1 : 0);
+        for (let x = 0; x < xMax; x++) {
+            matrix[x][y] = snapshot.cells[idx++] | 0;
+        }
+    }
+}
+
+function getMatrixMaxValue() {
+    let m = 0;
+    for (let y = 0; y < viewRow; y++) {
+        const xMax = viewCol - ((board === 'hex' && (y % 2 !== 0)) ? 1 : 0);
+        for (let x = 0; x < xMax; x++) {
+            if (matrix[x][y] > m) m = matrix[x][y];
+        }
+    }
+    return m;
+}
+
+function normalizeBinaryMatrix() {
+    for (let y = 0; y < viewRow; y++) {
+        const xMax = viewCol - ((board === 'hex' && (y % 2 !== 0)) ? 1 : 0);
+        for (let x = 0; x < xMax; x++) {
+            matrix[x][y] = matrix[x][y] ? 1 : 0;
+        }
+    }
+}
+
+function advanceOneGeneration(selectedMethod, selectedMaxLevel) {
+    if (selectedMethod === 'life' || selectedMethod === 'life_hex') {
+        const useHighLifeRule = selectedMethod === 'life_hex';
+        stepGameOfLife(useHighLifeRule);
+        return true;
+    }
+
+    const nextLevel = getMatrixMaxValue() + 1;
+    if (nextLevel > selectedMaxLevel) return false;
+    setLevel(nextLevel, false);
+    return true;
+}
+
+function stopGenerate() {
+    isRunning = false;
+    setGenerationControlsState();
+}
+
+function normalizePayloadCells(payload) {
+    if (!payload || !Array.isArray(payload.cells) || !payload.cells.length) return null;
+    const valid = payload.cells.filter(function (c) {
+        return c && typeof c.x === 'number' && typeof c.y === 'number' && typeof c.v === 'number' && c.v !== 0;
+    });
+    if (!valid.length) return null;
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    valid.forEach(function (c) {
+        if (c.x < minX) minX = c.x;
+        if (c.y < minY) minY = c.y;
+        if (c.x > maxX) maxX = c.x;
+        if (c.y > maxY) maxY = c.y;
+    });
+    return {
+        cells: valid.map(function (c) {
+            return { x: c.x - minX, y: c.y - minY, v: c.v | 0 };
+        }),
+        width: maxX - minX + 1,
+        height: maxY - minY + 1,
+        originalX: minX,
+        originalY: minY,
+    };
+}
+
+function canPlaceNormalizedCellsAt(norm, ox, oy) {
+    if (!norm) return false;
+    for (let i = 0; i < norm.cells.length; i++) {
+        const c = norm.cells[i];
+        const x = ox + c.x;
+        const y = oy + c.y;
+        if (!isValidBoardCell(x, y, board)) return false;
+    }
+    return true;
+}
+
+function clampPlacementOffset(norm, ox, oy) {
+    if (!norm) return { x: 0, y: 0 };
+    const maxX = Math.max(0, viewCol - norm.width);
+    const maxY = Math.max(0, viewRow - norm.height);
+    let x = Math.max(0, Math.min(ox, maxX));
+    let y = Math.max(0, Math.min(oy, maxY));
+    if (canPlaceNormalizedCellsAt(norm, x, y)) return { x: x, y: y };
+
+    for (let dy = 0; dy <= maxY; dy++) {
+        for (let dx = 0; dx <= maxX; dx++) {
+            const tx = Math.max(0, Math.min(x - dx, maxX));
+            const ty = Math.max(0, Math.min(y - dy, maxY));
+            if (canPlaceNormalizedCellsAt(norm, tx, ty)) return { x: tx, y: ty };
+        }
+    }
+    return null;
+}
+
+function clearPlacementPreview() {
+    if (!pendingPreviewCells.length) return;
+    for (let i = 0; i < pendingPreviewCells.length; i++) {
+        const cell = pendingPreviewCells[i];
+        if (!cell) continue;
+        cell.classList.remove('preview-cell');
+        for (let c = 1; c <= nrOfColors; c++) cell.classList.remove('color' + c);
+    }
+    pendingPreviewCells = [];
+}
+
+function paintPlacementPreview(norm, ox, oy) {
+    clearPlacementPreview();
+    if (!norm) return;
+    for (let i = 0; i < norm.cells.length; i++) {
+        const c = norm.cells[i];
+        const x = ox + c.x;
+        const y = oy + c.y;
+        const cell = document.getElementById('x' + String(x).padStart(2, '0') + String(y).padStart(2, '0'));
+        if (!cell) continue;
+        const colorClass = 'color' + (((c.v - 1 + nrOfColors) % nrOfColors) + 1);
+        cell.classList.add(colorClass);
+        cell.classList.add('preview-cell');
+        pendingPreviewCells.push(cell);
+    }
+}
+
+function updatePlacementPreviewTo(x, y) {
+    if (!pendingLoadedPlacement) return;
+    const clamped = clampPlacementOffset(pendingLoadedPlacement, x, y);
+    if (!clamped) return;
+    pendingLoadedPlacement.previewX = clamped.x;
+    pendingLoadedPlacement.previewY = clamped.y;
+    paintPlacementPreview(pendingLoadedPlacement, clamped.x, clamped.y);
+}
+
+function placeLoadedPatternAt(clickX, clickY) {
+    if (!pendingLoadedPlacement) return false;
+    const norm = pendingLoadedPlacement;
+    const clamped = clampPlacementOffset(norm, clickX, clickY);
+    if (!clamped) return false;
+    clearPlacementPreview();
+    if (!norm.overlay) resetMartixValue();
+    for (let i = 0; i < norm.cells.length; i++) {
+        const c = norm.cells[i];
+        const x = clamped.x + c.x;
+        const y = clamped.y + c.y;
+        if (isValidBoardCell(x, y, board)) matrix[x][y] = c.v | 0;
+    }
+    reDrawTable();
+    pendingLoadedPlacement = null;
+    return true;
+}
+
+function beginLoadedPlacement(payload, opts) {
+    opts = opts || {};
+    const norm = normalizePayloadCells(payload);
+    if (!norm) {
+        pendingLoadedPlacement = null;
+        clearPlacementPreview();
+        reDrawTable();
+        return;
+    }
+    norm.overlay = !!opts.overlay;
+    pendingLoadedPlacement = norm;
+    if (!norm.overlay) resetMartixValue();
+    reDrawTable();
+    updatePlacementPreviewTo(norm.originalX, norm.originalY);
+    showToast('Mozgasd az egeret: az elo-nezet mutatja az elhelyezest. Kattints a lerakáshoz, ESC: eredeti pozicio + kilepes.', 30000);
+}
+
+function setGenerationControlsState() {
+    var playBtn = document.getElementById('check');
+    var resetBtn = document.getElementById('btnReset');
+    var stopBtn = document.getElementById('btnStop');
+    var fwdBtn = document.getElementById('btnStepForward');
+    var backBtn = document.getElementById('btnStepBack');
+    if (playBtn) playBtn.disabled = isRunning;
+    if (resetBtn) resetBtn.disabled = isRunning;
+    if (stopBtn) stopBtn.disabled = !isRunning;
+    if (fwdBtn) fwdBtn.disabled = isRunning;
+    if (backBtn) backBtn.disabled = isRunning;
+}
+
 async function goGenerate() {
+    if (isRunning) return;
+    isRunning = true;
+    setGenerationControlsState();
     method = document.getElementById("neighbors").value;
     maxLevel = Number(document.getElementById("level").value);
     delay = Number(document.getElementById("delay").value);
 
     if (method === 'life' || method === 'life_hex') {
-        // mindig csak 0/1 legyen
-        for (let y = 0; y < viewRow; y++) {
-            for (let x = 0; x < viewCol; x++) matrix[x][y] = (matrix[x][y] ? 1 : 0);
-        }
-
-        for (let lev = 1; lev <= maxLevel; lev++) {
-            stepGameOfLife(method === 'life_hex');
-            reDrawTable();
-            await sleep(delay * 1000);
-        }
-        return;
+        normalizeBinaryMatrix();
     }
 
-    // régi mód
-    genMatrix();
-    renderTable();
+    const startMax = getMatrixMaxValue();
+    for (let lev = startMax + 1; lev <= maxLevel; lev++) {
+        if (!isRunning) break;
+        generationHistory.push(captureBoardSnapshot());
+        if (!advanceOneGeneration(method, maxLevel)) break;
+        reDrawTable();
+        await sleep(delay * 1000);
+    }
+    isRunning = false;
+    setGenerationControlsState();
 }
 
 
@@ -491,6 +852,10 @@ async function renderTable(reset = false) {
 }
 
 function resetMatrix(opt) {
+    stopGenerate();
+    generationHistory = [];
+    pendingLoadedPlacement = null;
+    clearPlacementPreview();
     if (board == 'hex') {
         createHexTable(false);
         createHexTable();
@@ -502,6 +867,7 @@ function resetMatrix(opt) {
     }
     document.getElementById('level1').checked = true;
     resetMartixValue();
+    setGenerationControlsState();
 }
 
 function resetMartixValue() {
@@ -538,65 +904,242 @@ function resetMartixValue() {
 //     }
 // }
 
-document.getElementById('neighbors').addEventListener('change', function () {
-    var boradTmp = this.value;
-    if (board == 'square' && boradTmp == 'hex') {
-        board = 'hex';
-        createSquareTable(false);
-        createHexTable();
-        addClickListenersHex();
-        resetMartixValue();
-    }
-    if (board == 'hex' && boradTmp != 'hex') {
-        board = 'square';
-        createHexTable(false);
-        createSquareTable();
-        addClickListenersSquare();
-        resetMartixValue();
-    }
-    if (this.value === 'life') {
-        // opcionális: automatikus reset + demo seed
-        resetMartixValue();
-        seedLifeDemo();
-    }
-});
+function wireNeighborsAndModeSelects() {
+    var neighborsEl = document.getElementById('neighbors');
+    var modeEl = document.getElementById('mode');
+    if (!neighborsEl || !modeEl || neighborsEl._cellautoUiWired) return;
+    neighborsEl._cellautoUiWired = true;
 
-document.getElementById('mode').addEventListener('change', function () {
-    var curMode = this.value;
-    if (modePT == 'play' && curMode == 'test') {
-        modePT = curMode;
-        document.getElementById('verifySectionDraw').classList.remove('hidden');
-        document.getElementById('check').classList.add('hidden');
-        document.getElementById('btnVerify').classList.remove('hidden');
-        document.getElementById('level1').checked = true;
-        document.getElementById('level').value = maxLevelVerify;
+    neighborsEl.addEventListener('change', function () {
+        stopGenerate();
+        generationHistory = [];
+        var boradTmp = this.value;
+        if (board == 'square' && boradTmp == 'hex') {
+            board = 'hex';
+            createSquareTable(false);
+            createHexTable();
+            addClickListenersHex();
+            resetMartixValue();
+        }
+        if (board == 'hex' && boradTmp != 'hex') {
+            board = 'square';
+            createHexTable(false);
+            createSquareTable();
+            addClickListenersSquare();
+            resetMartixValue();
+        }
+        if (this.value === 'life' || this.value === 'life_hex') {
+            resetMartixValue();
+            seedLifeDemo();
+        }
+        updateBoardScrollableExtent();
+    });
+
+    modeEl.addEventListener('change', function () {
+        var curMode = this.value;
+        if (modePT == 'play' && curMode == 'test') {
+            modePT = curMode;
+            document.getElementById('verifySectionDraw').classList.remove('hidden');
+            document.getElementById('check').classList.add('hidden');
+            document.getElementById('btnVerify').classList.remove('hidden');
+            document.getElementById('level1').checked = true;
+            document.getElementById('level').value = maxLevelVerify;
+        }
+        if (modePT == 'test' && curMode == 'play') {
+            modePT = curMode;
+            document.getElementById('verifySectionDraw').classList.add('hidden');
+            document.getElementById('btnVerify').classList.add('hidden');
+            document.getElementById('check').classList.remove('hidden');
+            document.getElementById('level').value = maxLevel;
+        }
+    });
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', wireNeighborsAndModeSelects);
+} else {
+    wireNeighborsAndModeSelects();
+}
+
+function syncPlayModeToggleFromSelect() {
+    var modeSel = document.getElementById('mode');
+    if (!modeSel) return;
+    var active = modeSel.value === 'test' ? 'test' : 'play';
+    var radio = document.querySelector('input[name="playModeToggle"][value="' + active + '"]');
+    if (radio) radio.checked = true;
+}
+
+function wirePlayModeToggle() {
+    var modeSel = document.getElementById('mode');
+    if (!modeSel || modeSel._playModeWired) return;
+    modeSel._playModeWired = true;
+    syncPlayModeToggleFromSelect();
+
+    var radios = document.querySelectorAll('input[name="playModeToggle"]');
+    radios.forEach(function (r) {
+        r.addEventListener('change', function () {
+            if (!this.checked) return;
+            modeSel.value = this.value;
+            modeSel.dispatchEvent(new Event('change', { bubbles: true }));
+        });
+    });
+
+    modeSel.addEventListener('change', syncPlayModeToggleFromSelect);
+}
+
+function stepForwardOneGeneration() {
+    if (isRunning) return;
+    method = document.getElementById("neighbors").value;
+    maxLevel = Number(document.getElementById("level").value);
+    if (method === 'life' || method === 'life_hex') normalizeBinaryMatrix();
+    generationHistory.push(captureBoardSnapshot());
+    if (advanceOneGeneration(method, maxLevel)) reDrawTable();
+    setGenerationControlsState();
+}
+
+function stepBackOneGeneration() {
+    if (isRunning) return;
+    var prev = generationHistory.pop();
+    if (!prev) return;
+    applyBoardSnapshot(prev);
+    reDrawTable();
+    setGenerationControlsState();
+}
+
+function wireGenerationControls() {
+    var stopBtn = document.getElementById('btnStop');
+    var fwdBtn = document.getElementById('btnStepForward');
+    var backBtn = document.getElementById('btnStepBack');
+    if (stopBtn && !stopBtn._wired) {
+        stopBtn._wired = true;
+        stopBtn.addEventListener('click', stopGenerate);
     }
-    if (modePT == 'test' && curMode == 'play') {
-        modePT = curMode;
-        document.getElementById('verifySectionDraw').classList.add('hidden');
-        document.getElementById('btnVerify').classList.add('hidden');
-        document.getElementById('check').classList.remove('hidden');
-        document.getElementById('level').value = maxLevel;
+    if (fwdBtn && !fwdBtn._wired) {
+        fwdBtn._wired = true;
+        fwdBtn.addEventListener('click', stepForwardOneGeneration);
     }
-});
+    if (backBtn && !backBtn._wired) {
+        backBtn._wired = true;
+        backBtn.addEventListener('click', stepBackOneGeneration);
+    }
+    setGenerationControlsState();
+}
+
+/** Max gen. (1…maxCycle) — fusson a táblaépítés előtt is, hogy hiba esetén is legyen opció */
+function ensureMaxGenSelectOptions() {
+    const select = document.getElementById('level');
+    if (!select) return;
+    select.innerHTML = '';
+    for (let i = 1; i <= maxCycle; i++) {
+        var option = document.createElement('option');
+        option.value = String(i);
+        option.textContent = String(i);
+        if (i === currentCycle) option.selected = true;
+        select.appendChild(option);
+    }
+}
 
 function initGameBoard() {
+    ensureMaxGenSelectOptions();
     createSquareTable();
     addClickListenersSquare();
     document.getElementById('neighbors').value = 'side';
     document.getElementById('mode').value = 'play';
     document.getElementById('verifySectionDraw').classList.add('hidden');
     document.getElementById('btnVerify').classList.add('hidden');
-    const select = document.getElementById("level");
-    for (i = 2; i <= maxCycle; i++) {
-        var option = document.createElement("option");
-        option.value = i.toString();
-        option.text = i;
 
-        if (i === currentCycle) {
-            option.selected = true;
+    wireBoardSizeAndZoomControls();
+    wireWordModeToggle();
+    wirePlayModeToggle();
+    wireGenerationControls();
+    updateBoardScrollableExtent();
+}
+
+function applyBoardSize(size) {
+    if (!Number.isFinite(size) || size < 10 || size > 200) return;
+    viewRow = size;
+    viewCol = size;
+    resetMatrix(0);
+    updateBoardScrollableExtent();
+}
+
+function applyBoardZoom(zoom) {
+    var bd = boardDivEl();
+    if (!bd || !Number.isFinite(zoom) || zoom <= 0) return;
+    boardZoom = zoom;
+    bd.style.zoom = String(zoom);
+    updateBoardScrollableExtent();
+}
+
+function syncWordModeToggleFromSelect() {
+    var wm = document.getElementById('word_mode');
+    if (!wm) return;
+    var active = wm.value === 'word' ? 'word' : 'select';
+    var radio = document.querySelector('input[name="wordModeToggle"][value="' + active + '"]');
+    if (radio) radio.checked = true;
+}
+
+function wireWordModeToggle() {
+    var wm = document.getElementById('word_mode');
+    if (!wm || wm._modeWired) return;
+    wm._modeWired = true;
+    syncWordModeToggleFromSelect();
+
+    var radios = document.querySelectorAll('input[name="wordModeToggle"]');
+    radios.forEach(function (r) {
+        r.addEventListener('change', function () {
+            if (!this.checked) return;
+            wm.value = this.value;
+            wm.dispatchEvent(new Event('change', { bubbles: true }));
+        });
+    });
+
+    wm.addEventListener('change', syncWordModeToggleFromSelect);
+}
+
+function updateBoardScrollableExtent() {
+    var bd = boardDivEl();
+    if (!bd) return;
+    requestAnimationFrame(function () {
+        var root = bd.firstElementChild;
+        if (!root) return;
+        var rect = root.getBoundingClientRect();
+        if (!rect || !rect.width || !rect.height) return;
+        bd.style.minWidth = String(Math.ceil(rect.width)) + 'px';
+        bd.style.minHeight = String(Math.ceil(rect.height)) + 'px';
+    });
+}
+
+function wireBoardSizeAndZoomControls() {
+    var sizeSel = document.getElementById('boardSizeSelect');
+    var zoomSel = document.getElementById('boardZoomSelect');
+
+    if (sizeSel && !sizeSel._wired) {
+        sizeSel._wired = true;
+        var savedSize = parseInt(localStorage.getItem(STORAGE_BOARD_SIZE) || '', 10);
+        if (savedSize && sizeSel.querySelector('option[value="' + savedSize + '"]')) {
+            sizeSel.value = String(savedSize);
         }
-        select.appendChild(option);
+        applyBoardSize(parseInt(sizeSel.value, 10));
+        sizeSel.addEventListener('change', function () {
+            var size = parseInt(this.value, 10);
+            applyBoardSize(size);
+            localStorage.setItem(STORAGE_BOARD_SIZE, String(size));
+        });
+    }
+
+    if (zoomSel && !zoomSel._wired) {
+        zoomSel._wired = true;
+        var savedZoom = localStorage.getItem(STORAGE_BOARD_ZOOM);
+        if (savedZoom && zoomSel.querySelector('option[value="' + savedZoom + '"]')) {
+            zoomSel.value = savedZoom;
+        }
+        applyBoardZoom(parseFloat(zoomSel.value));
+        zoomSel.addEventListener('change', function () {
+            var zoom = parseFloat(this.value);
+            applyBoardZoom(zoom);
+            localStorage.setItem(STORAGE_BOARD_ZOOM, String(zoom));
+        });
     }
 }
 
@@ -620,11 +1163,54 @@ document.addEventListener('DOMContentLoaded', function () {
         var nextIndex = (selectedIndex + 1) % radioButtons.length; // Következő index, vagy vissza az elsőre
         radioButtons[nextIndex].checked = true; // Beállítjuk a következő rádiógombot
     });
+
+    document.addEventListener('mouseup', function () {
+        isPointerDown = false;
+        dragSelectActive = false;
+    });
+    document.addEventListener('scroll', hideCellHoverPreview, true);
+
+    document.addEventListener('click', function (event) {
+        if (!wordQuickPickerEl) return;
+        if (Date.now() - wordQuickPickerOpenedAt < 180) return;
+        if (wordQuickPickerEl.contains(event.target)) return;
+        closeWordQuickPicker();
+    });
+
+    tabla.addEventListener('mousemove', function (event) {
+        if (!pendingLoadedPlacement) return;
+        const target = event.target && event.target.closest ? event.target.closest('[data-x][data-y]') : null;
+        const x = target && target.dataset ? parseInt(target.dataset.x, 10) : NaN;
+        const y = target && target.dataset ? parseInt(target.dataset.y, 10) : NaN;
+        if (!Number.isFinite(x) || !Number.isFinite(y)) return;
+        updatePlacementPreviewTo(x, y);
+    }, true);
+
+    tabla.addEventListener('click', function (event) {
+        if (!pendingLoadedPlacement) return;
+        const target = event.target && event.target.closest ? event.target.closest('[data-x][data-y]') : null;
+        const x = target && target.dataset ? parseInt(target.dataset.x, 10) : NaN;
+        const y = target && target.dataset ? parseInt(target.dataset.y, 10) : NaN;
+        if (!Number.isFinite(x) || !Number.isFinite(y)) return;
+        event.preventDefault();
+        event.stopPropagation();
+        placeLoadedPatternAt(x, y);
+    }, true);
+
+    document.addEventListener('keydown', function (event) {
+        if (!pendingLoadedPlacement) return;
+        if (event.key !== 'Escape') return;
+        event.preventDefault();
+        placeLoadedPatternAt(
+            pendingLoadedPlacement.originalX,
+            pendingLoadedPlacement.originalY
+        );
+    });
 });
 
 
 function help() {
-    alert("Cellular automation\n\n2024 Borsos László (F4MQFM)\nlborsos@gmail.com\n\nClick on the field to set the initial cells.")
+    showToast('Cellular automation — 2024 Borsos Laszlo (F4MQFM), lborsos@gmail.com. Click on the field to set the initial cells.', 30000);
 }
 
 
@@ -636,6 +1222,37 @@ function showWinMessage(win = true) {
     setTimeout(function () {
         winMessage.style.display = "none"; // Eltüntetjük a szöveget 3 másodperc múlva
     }, 3000); // 3000 millisecond = 3 másodperc
+}
+
+function showToast(message, durationMs) {
+    var id = 'cellautoToast';
+    var el = document.getElementById(id);
+    if (!el) {
+        el = document.createElement('div');
+        el.id = id;
+        el.className = 'app-toast';
+        var text = document.createElement('div');
+        text.className = 'app-toast__text';
+        var close = document.createElement('button');
+        close.type = 'button';
+        close.className = 'app-toast__close';
+        close.setAttribute('aria-label', 'Értesítés bezárása');
+        close.textContent = '×';
+        close.addEventListener('click', function () {
+            clearTimeout(el._hideTimer);
+            el.classList.remove('is-visible');
+        });
+        el.appendChild(text);
+        el.appendChild(close);
+        document.body.appendChild(el);
+    }
+    var textEl = el.querySelector('.app-toast__text');
+    if (textEl) textEl.textContent = message;
+    el.classList.add('is-visible');
+    clearTimeout(el._hideTimer);
+    el._hideTimer = setTimeout(function () {
+        el.classList.remove('is-visible');
+    }, Number(durationMs) || 2600);
 }
 
 function insertLineBreaks(inputString) {
@@ -661,6 +1278,8 @@ window.CELLAUTO_buildSavePayload = function () {
     }
     var wl = document.getElementById('wordListSelect');
     var cl = document.getElementById('colorListSelect');
+    var bs = document.getElementById('boardSizeSelect');
+    var bz = document.getElementById('boardZoomSelect');
     var drawRadio = document.querySelector('input[name="drawLevel"]:checked');
     return {
         schemaVersion: 1,
@@ -673,13 +1292,22 @@ window.CELLAUTO_buildSavePayload = function () {
         drawLevel: drawRadio ? parseInt(drawRadio.value, 10) : null,
         wordListId: wl && wl.value ? parseInt(wl.value, 10) : null,
         colorListId: cl && cl.value ? parseInt(cl.value, 10) : null,
+        boardSize: bs && bs.value ? parseInt(bs.value, 10) : viewRow,
+        boardZoom: bz && bz.value ? parseFloat(bz.value) : boardZoom,
         cells: cells
     };
 };
 
 /** Mentés visszaállítása a táblára */
-window.CELLAUTO_applySavePayload = function (payload) {
+window.CELLAUTO_applySavePayload = function (payload, opts) {
+    opts = opts || {};
     if (!payload || payload.schemaVersion !== 1) return false;
+    var asIcon = !!opts.asIcon || !!payload.icon;
+
+    if (asIcon) {
+        beginLoadedPlacement(payload, { overlay: true });
+        return true;
+    }
     var neigh = document.getElementById('neighbors');
     neigh.value = payload.neighbors || 'side';
     neigh.dispatchEvent(new Event('change', { bubbles: true }));
@@ -693,20 +1321,33 @@ window.CELLAUTO_applySavePayload = function (payload) {
     var d = document.getElementById('delay');
     if (d && payload.delay !== undefined && payload.delay !== null) d.value = String(payload.delay);
     var wm = document.getElementById('word_mode');
-    if (wm && payload.wordMode) wm.value = payload.wordMode;
+    if (wm && payload.wordMode) {
+        wm.value = payload.wordMode;
+        wm.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+    var sizeSel = document.getElementById('boardSizeSelect');
+    if (sizeSel && payload.boardSize && sizeSel.querySelector('option[value="' + payload.boardSize + '"]')) {
+        sizeSel.value = String(payload.boardSize);
+        sizeSel.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+    var zoomSel = document.getElementById('boardZoomSelect');
+    if (zoomSel && payload.boardZoom && zoomSel.querySelector('option[value="' + payload.boardZoom + '"]')) {
+        zoomSel.value = String(payload.boardZoom);
+        zoomSel.dispatchEvent(new Event('change', { bubbles: true }));
+    }
     if (payload.drawLevel) {
         var dr = document.querySelector('input[name="drawLevel"][value="' + payload.drawLevel + '"]');
         if (dr) dr.checked = true;
     }
 
-    resetMartixValue();
-    var arr = payload.cells || [];
-    for (var k = 0; k < arr.length; k++) {
-        var c = arr[k];
-        if (typeof c.x === 'number' && typeof c.y === 'number' && c.x >= 0 && c.x < maxCol && c.y >= 0 && c.y < maxRow) {
-            matrix[c.x][c.y] = c.v | 0;
-        }
-    }
-    reDrawTable();
+    beginLoadedPlacement(payload, { overlay: false });
     return true;
 };
+
+window.CELLAUTO_getBoardType = function () {
+    return board === 'hex' ? 'hex' : 'square';
+};
+
+window.initGameBoard = initGameBoard;
+window.ensureMaxGenSelectOptions = ensureMaxGenSelectOptions;
+window.reDrawTable = reDrawTable;

@@ -30,6 +30,18 @@
     wrap.hidden = !api.getToken();
   }
 
+  function parseLoadSelection() {
+    var sel = $('loadSaveSelect');
+    var raw = sel && sel.value ? String(sel.value) : '';
+    if (!raw) return { gid: 0, sid: 0 };
+    if (raw.indexOf(':') === -1) return { gid: 0, sid: parseInt(raw, 10) || 0 };
+    var parts = raw.split(':');
+    return {
+      gid: parseInt(parts[0], 10) || 0,
+      sid: parseInt(parts[1], 10) || 0,
+    };
+  }
+
   async function refreshGroupSelects() {
     var groups = [];
     try {
@@ -57,7 +69,7 @@
       loadSel.innerHTML = '';
       var o1 = document.createElement('option');
       o1.value = '';
-      o1.textContent = '— válassz csoportot —';
+      o1.textContent = '— összes csoport —';
       loadSel.appendChild(o1);
       groups.forEach(function (g) {
         var o = document.createElement('option');
@@ -73,30 +85,67 @@
     var sel = $('loadSaveSelect');
     if (!sel) return;
     sel.innerHTML = '';
-    if (!groupId) {
-      var ox = document.createElement('option');
-      ox.value = '';
-      ox.textContent = '— előbb csoport —';
-      sel.appendChild(ox);
-      return;
-    }
     var saves = [];
+    var selectedGroupName = '';
+    var groups = [];
     try {
-      saves = await api.getBoardSaves(groupId);
+      groups = await api.getBoardSaveGroups();
     } catch (e) {
-      saves = [];
+      groups = [];
     }
+    if (groupId) {
+      var matched = groups.find(function (g) {
+        return g.id === groupId;
+      });
+      selectedGroupName = matched ? (matched.name || 'Csoport #' + matched.id) : '';
+      try {
+        saves = await api.getBoardSaves(groupId);
+      } catch (e) {
+        saves = [];
+      }
+      saves = saves.map(function (s) {
+        return {
+          id: s.id,
+          name: s.name,
+          groupId: groupId,
+          groupName: selectedGroupName,
+        };
+      });
+    } else {
+      var perGroup = await Promise.all(
+        groups.map(async function (g) {
+          try {
+            var gs = await api.getBoardSaves(g.id);
+            return gs.map(function (s) {
+              return {
+                id: s.id,
+                name: s.name,
+                groupId: g.id,
+                groupName: g.name || 'Csoport #' + g.id,
+              };
+            });
+          } catch (e) {
+            return [];
+          }
+        })
+      );
+      saves = perGroup.flat();
+    }
+
     if (!saves.length) {
       var o0 = document.createElement('option');
       o0.value = '';
-      o0.textContent = '— nincs mentés ebben a csoportban —';
+      o0.textContent = groupId
+        ? '— nincs mentés ebben a csoportban —'
+        : '— nincs mentés egyetlen csoportban sem —';
       sel.appendChild(o0);
       return;
     }
     saves.forEach(function (s) {
       var o = document.createElement('option');
-      o.value = String(s.id);
-      o.textContent = s.name || 'Mentés #' + s.id;
+      o.value = String(s.groupId) + ':' + String(s.id);
+      var saveName = s.name || 'Mentés #' + s.id;
+      o.textContent = groupId ? saveName : saveName + ' — ' + s.groupName;
       sel.appendChild(o);
     });
   }
@@ -240,6 +289,7 @@
 
       var payload = typeof window.CELLAUTO_buildSavePayload === 'function' ? window.CELLAUTO_buildSavePayload() : null;
       if (!payload) throw new Error('Payload üres');
+      payload.icon = !!($('saveAsIcon') && $('saveAsIcon').checked);
 
       if (overwriteId) {
         await api.updateBoardSave(gid, overwriteId, { name: name, payload: payload });
@@ -250,6 +300,7 @@
       closeBackdrop('saveBackdrop');
       if ($('saveNameInput')) $('saveNameInput').value = '';
       if ($('saveNewGroupName')) $('saveNewGroupName').value = '';
+      if ($('saveAsIcon')) $('saveAsIcon').checked = false;
       if ($('saveOverwriteSelect')) {
         $('saveOverwriteSelect').value = '';
         $('saveOverwriteSelect').disabled = false;
@@ -269,10 +320,11 @@
   async function onLoadDelete() {
     var err = $('loadError');
     if (err) err.textContent = '';
-    var gid = $('loadGroupSelect') && $('loadGroupSelect').value ? parseInt($('loadGroupSelect').value, 10) : 0;
-    var sid = $('loadSaveSelect') && $('loadSaveSelect').value ? parseInt($('loadSaveSelect').value, 10) : 0;
+    var parsed = parseLoadSelection();
+    var gid = parsed.gid;
+    var sid = parsed.sid;
     if (!gid || !sid) {
-      if (err) err.textContent = 'Válassz csoportot és törölni kívánt mentést.';
+      if (err) err.textContent = 'Válassz törölni kívánt mentést.';
       return;
     }
     var sel = $('loadSaveSelect');
@@ -290,10 +342,11 @@
   async function onLoadSubmit() {
     var err = $('loadError');
     if (err) err.textContent = '';
-    var gid = $('loadGroupSelect') && $('loadGroupSelect').value ? parseInt($('loadGroupSelect').value, 10) : 0;
-    var sid = $('loadSaveSelect') && $('loadSaveSelect').value ? parseInt($('loadSaveSelect').value, 10) : 0;
+    var parsed = parseLoadSelection();
+    var gid = parsed.gid;
+    var sid = parsed.sid;
     if (!gid || !sid) {
-      if (err) err.textContent = 'Válassz csoportot és mentést.';
+      if (err) err.textContent = 'Válassz mentést.';
       return;
     }
     try {
@@ -309,8 +362,15 @@
       }
       if (!payload) throw new Error('Üres mentés');
 
+      var currentBoard = typeof window.CELLAUTO_getBoardType === 'function'
+        ? window.CELLAUTO_getBoardType()
+        : null;
+      if (payload.board && currentBoard && payload.board !== currentBoard) {
+        throw new Error('Eltérő rácstípus: négyzetrácsos mentés nem tölthető hexára, és fordítva.');
+      }
+
       if (typeof window.CELLAUTO_applySavePayload === 'function') {
-        window.CELLAUTO_applySavePayload(payload);
+        window.CELLAUTO_applySavePayload(payload, { asIcon: !!payload.icon });
       }
       applyListIdsFromPayload(payload);
       closeBackdrop('loadBackdrop');
@@ -342,6 +402,7 @@
       bs.addEventListener('click', async function () {
         await refreshGroupSelects();
         if ($('saveError')) $('saveError').textContent = '';
+        if ($('saveAsIcon')) $('saveAsIcon').checked = false;
         var gid = $('saveGroupSelect') && $('saveGroupSelect').value ? parseInt($('saveGroupSelect').value, 10) : 0;
         await refreshSaveModalSaves(gid);
         openBackdrop('saveBackdrop');
@@ -352,7 +413,8 @@
         await refreshGroupSelects();
         if ($('loadError')) $('loadError').textContent = '';
         var lg = $('loadGroupSelect');
-        if (lg && lg.value) await refreshSaveSelectForGroup(parseInt(lg.value, 10));
+        var gid = lg && lg.value ? parseInt(lg.value, 10) : 0;
+        await refreshSaveSelectForGroup(gid);
         openBackdrop('loadBackdrop');
       });
     }

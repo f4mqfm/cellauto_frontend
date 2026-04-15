@@ -12,6 +12,7 @@
 
   var API_BASE = (global.CELLAUTO_API_BASE || '/api').replace(/\/$/, '');
   var TOKEN_KEY = 'cellauto_token';
+  var ENTRY_POINT = 'www';
 
   function getToken() {
     try {
@@ -184,7 +185,12 @@
   }
 
   async function login(loginField, password) {
-    var data = await apiFetch('POST', '/login', { login: loginField, password: password }, false);
+    var data = await apiFetch(
+      'POST',
+      '/login',
+      { login: loginField, password: password, entry_point: ENTRY_POINT },
+      false
+    );
     var tok = extractToken(data);
     if (tok) {
       setToken(tok);
@@ -210,12 +216,39 @@
     return apiFetch('GET', '/ping', null, false);
   }
 
+  async function logout() {
+    return apiFetch('POST', '/logout', { entry_point: ENTRY_POINT }, true);
+  }
+
+  async function logVisit(occurredAtIso) {
+    var body = { entry_point: ENTRY_POINT };
+    if (occurredAtIso) body.occurred_at = occurredAtIso;
+    return apiFetch('POST', '/access-logs/visit', body, true);
+  }
+
   async function getLists() {
     return apiFetch('GET', '/lists', null, true);
   }
 
+  async function getPublicLists() {
+    var candidates = ['/lists/public', '/public-lists', '/lists?scope=public', '/lists?public=1'];
+    for (var i = 0; i < candidates.length; i++) {
+      try {
+        var d = await apiFetch('GET', candidates[i], null, true);
+        return unwrapArray(d);
+      } catch (e) {
+        if (e && (e.status === 404 || e.status === 405)) continue;
+      }
+    }
+    return [];
+  }
+
   async function getList(id) {
     return apiFetch('GET', '/lists/' + id, null, true);
+  }
+
+  async function getListWords(id) {
+    return apiFetch('GET', '/lists/' + id + '/words', null, true);
   }
 
   async function getColorLists() {
@@ -286,8 +319,12 @@
     login: login,
     getUser: getUser,
     ping: ping,
+    logout: logout,
+    logVisit: logVisit,
     getLists: getLists,
+    getPublicLists: getPublicLists,
     getList: getList,
+    getListWords: getListWords,
     getColorLists: getColorLists,
     getColorList: getColorList,
     unwrapArray: unwrapArray,

@@ -6,10 +6,11 @@ body.app-shell {
   margin-top: 0;
   display: block;
   background: #808080;
+  overflow: hidden;
 }
 
 .app-root {
-  min-height: 100vh;
+  height: 100vh;
   display: flex;
   flex-direction: column;
   font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
@@ -58,31 +59,47 @@ body.app-shell {
 
 .app-sidebar {
   width: min(380px, 42vw);
+  min-width: 240px;
+  max-width: 70vw;
   flex-shrink: 0;
-  padding: 0.75rem 1rem;
-  background: #e8e8e8;
-  border-right: 1px solid #bbb;
+  padding: 1rem;
+  background: linear-gradient(180deg, #f6f7fb 0%, #eceff5 100%);
+  border-right: 1px solid #d6dbe6;
   overflow: auto;
+  resize: horizontal;
+  box-shadow: inset -1px 0 0 rgba(0, 0, 0, 0.04);
 }
 
 .app-sidebar h2 {
-  margin: 0 0 0.5rem;
-  font-size: 1rem;
-  font-weight: 600;
+  margin: 0 0 0.75rem;
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: #1f2a44;
 }
 
 .app-main {
   flex: 1;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  padding: 0.75rem 1rem 2rem;
+  align-items: stretch;
+  padding: 0.75rem 1rem 0.75rem;
   overflow: auto;
   background: #808080;
 }
 
 .app-main .container {
   margin-top: 0;
+  width: max-content;
+  min-width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+}
+
+#boardDiv {
+  display: inline-block;
+  margin: 0 auto;
 }
 
 .app-hint {
@@ -93,26 +110,114 @@ body.app-shell {
 }
 
 .app-picker {
-  margin-bottom: 0.75rem;
+  margin-bottom: 0.9rem;
+  padding: 0.65rem 0.7rem;
+  background: #fff;
+  border: 1px solid #d8deeb;
+  border-radius: 10px;
+  box-shadow: 0 1px 2px rgba(14, 30, 68, 0.05);
 }
 
 .app-picker label {
   display: block;
   font-size: 0.85rem;
-  font-weight: 600;
-  margin-bottom: 0.25rem;
-  color: #222;
+  font-weight: 700;
+  margin-bottom: 0.35rem;
+  color: #24324f;
 }
 
 .app-picker select {
   width: 100%;
   max-width: 100%;
   box-sizing: border-box;
-  padding: 0.35rem 0.5rem;
+  padding: 0.42rem 0.55rem;
   font-size: 0.9rem;
-  border: 1px solid #aaa;
-  border-radius: 4px;
-  background: #fff;
+  border: 1px solid #bdc7dd;
+  border-radius: 6px;
+  background: #fcfdff;
+  color: #182136;
+}
+
+.app-picker select:focus {
+  outline: none;
+  border-color: #4b6cb7;
+  box-shadow: 0 0 0 2px rgba(75, 108, 183, 0.16);
+}
+
+.size-zoom-row {
+  display: flex;
+  gap: 0.6rem;
+}
+
+.size-zoom-col {
+  flex: 1;
+  min-width: 0;
+}
+
+.size-zoom-col label {
+  font-size: 0.78rem;
+  margin-bottom: 0.25rem;
+}
+
+.mode-toggle {
+  display: inline-flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.mode-toggle input[type='radio'] {
+  display: none;
+}
+
+.mode-toggle label {
+  border: 1px solid #bdc7dd;
+  border-radius: 8px;
+  padding: 0.35rem 0.6rem;
+  background: #fcfdff;
+  color: #1f2a44;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.mode-toggle input[type='radio']:checked + label {
+  border-color: #4b6cb7;
+  background: #eaf0ff;
+  box-shadow: 0 0 0 2px rgba(75, 108, 183, 0.12);
+}
+
+.inline-check {
+  display: inline-flex !important;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.35rem;
+  margin-bottom: 0.15rem;
+  font-size: 0.82rem !important;
+  font-weight: 600;
+  color: #24324f;
+}
+
+.inline-check input[type='checkbox'] {
+  margin: 0;
+}
+
+.visually-hidden {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
+@media (max-width: 520px) {
+  .size-zoom-row {
+    flex-direction: column;
+  }
 }
 
 /* Login modal */
@@ -146,21 +251,219 @@ body.app-shell {
 }
 
 .app-save-load {
-  margin: 0.75rem 0;
-  padding-top: 0.5rem;
-  border-top: 1px solid #ccc;
+  margin: 0.75rem 0 1rem;
+  padding: 0.65rem 0.7rem;
+  border: 1px solid #d8deeb;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(14, 30, 68, 0.05);
 }
 
 .app-save-load__title {
   font-size: 0.95rem;
-  margin: 0 0 0.4rem;
-  font-weight: 600;
+  margin: 0 0 0.5rem;
+  font-weight: 700;
+  color: #24324f;
 }
 
 .app-save-load__btns {
   display: flex;
   gap: 0.5rem;
   flex-wrap: wrap;
+}
+
+#buttons {
+  background: #fff;
+  border: 1px solid #d8deeb;
+  border-radius: 10px;
+  box-shadow: 0 1px 2px rgba(14, 30, 68, 0.05);
+  padding: 0.7rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+#buttons select,
+#buttons button {
+  border-radius: 6px;
+}
+
+#buttons select {
+  border: 1px solid #bdc7dd;
+  background: #fcfdff;
+  color: #182136;
+}
+
+#buttons button {
+  border: 1px solid #8f9ab3;
+  background: linear-gradient(180deg, #f8faff 0%, #e6ecf9 100%);
+  color: #1f2a44;
+  font-weight: 600;
+}
+
+#buttons button:hover {
+  filter: brightness(0.98);
+}
+
+#buttons button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  filter: grayscale(0.2);
+}
+
+.preview-cell {
+  opacity: 0.55;
+  transition: opacity 120ms linear, filter 120ms linear;
+  filter: saturate(1.15);
+  box-shadow: inset 0 0 0 1px rgba(40, 40, 40, 0.35);
+}
+
+.app-toast {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 3000;
+  max-width: min(520px, 92vw);
+  padding: 0.6rem 0.8rem;
+  border-radius: 8px;
+  border: 1px solid #2f446d;
+  background: rgba(24, 33, 54, 0.94);
+  color: #f2f6ff;
+  font-size: 0.88rem;
+  line-height: 1.35;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  opacity: 0;
+  transform: translateY(8px);
+  pointer-events: auto;
+  transition: opacity 180ms ease, transform 180ms ease;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
+}
+
+.app-toast.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.word-quick-picker {
+  position: fixed;
+  z-index: 2600;
+  min-width: 180px;
+  max-width: min(320px, 70vw);
+  padding: 0.45rem;
+  border: 1px solid #7f94c7;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.22);
+}
+
+.word-quick-picker select {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid #b9c6e4;
+  border-radius: 6px;
+  padding: 0.35rem 0.45rem;
+  font-size: 0.9rem;
+  min-height: 6.5rem;
+}
+
+.cell-hover-preview {
+  position: fixed;
+  z-index: 2800;
+  transform: translate(-50%, -100%);
+  max-width: min(420px, 82vw);
+  padding: 0.35rem 0.55rem;
+  border: 2px solid #f1cb00;
+  border-radius: 8px;
+  background: rgba(255, 252, 209, 0.96);
+  color: #202020;
+  font-size: 1.05rem;
+  font-weight: 700;
+  line-height: 1.25;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 90ms ease;
+}
+
+.cell-hover-preview.is-visible {
+  opacity: 1;
+}
+
+.app-toast__text {
+  flex: 1;
+}
+
+.app-toast__close {
+  border: 1px solid #8fa7d8;
+  background: rgba(255, 255, 255, 0.08);
+  color: #f2f6ff;
+  border-radius: 6px;
+  width: 1.5rem;
+  height: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.app-toast__close:hover {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.control-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.control-row--actions {
+  flex-wrap: wrap;
+}
+
+.control-row--actions .button {
+  margin-top: 0;
+  min-width: 4.2rem;
+}
+
+#btnStepBack,
+#btnStepForward {
+  min-width: 2.2rem !important;
+  padding: 0.38rem 0.32rem;
+}
+
+.control-row span {
+  min-width: 4.6rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #24324f;
+}
+
+.control-row select {
+  flex: 1;
+}
+
+.control-row--double span {
+  min-width: auto;
+}
+
+.control-row--double select {
+  min-width: 0;
+}
+
+/* Max gen.: ne zsugorodjon láthatatlanná a flex sorban; szöveg látszódjon theme alatt is */
+#level {
+  min-width: 3.25rem;
+  color: #24324f;
+  background-color: #fff;
+}
+
+/* Generálási mód (hex stb.): ugyanaz a www olvashatóság problémára */
+.mode-picker select#neighbors {
+  color: #24324f;
+  background-color: #fff;
 }
 
 /* Felülírjuk a style.css globális form / label szabályait */
@@ -300,6 +603,9 @@ body.app-shell {
 
   .app-sidebar {
     width: auto;
+    min-width: 0;
+    max-width: none;
+    resize: none;
     border-right: none;
     border-bottom: 1px solid #bbb;
     max-height: 45vh;

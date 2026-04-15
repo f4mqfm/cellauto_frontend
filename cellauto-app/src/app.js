@@ -7,6 +7,8 @@
   var DEFAULT_HEX_COLORS = ['#25ad4f', '#fcf400', '#ee1c25', '#00a4e6', '#b97b55', '#ffc70a'];
   var STORAGE_WORD_LIST = 'cellauto_sel_word_list_id';
   var STORAGE_COLOR_LIST = 'cellauto_sel_color_list_id';
+  var VISIT_LOG_THROTTLE_MS = 15000;
+  var __lastVisitLogMs = 0;
 
   function $(id) {
     return document.getElementById(id);
@@ -35,9 +37,8 @@
   function setWordHint(loggedIn) {
     var el = $('wordListHint');
     if (!el) return;
-    el.textContent = loggedIn
-      ? 'Több szólista esetén válassz listát. A szavak mind a hat szinten ugyanabból a listából választhatók.'
-      : 'Szólista csak bejelentkezés után érhető el. Színek: alapértelmezett paletta (vagy bejelentkezve az API).';
+    el.textContent = '';
+    el.hidden = true;
   }
 
   function openLoginModal() {
@@ -97,6 +98,27 @@
     return lists[0].id;
   }
 
+  function unwrapListArray(data) {
+    if (Array.isArray(data)) return data;
+    if (data && Array.isArray(data.data)) return data.data;
+    return [];
+  }
+
+  function mergeUniqueLists(primary, secondary) {
+    var out = [];
+    var seen = Object.create(null);
+    var all = []
+      .concat(primary || [])
+      .concat(secondary || []);
+    all.forEach(function (l) {
+      if (!l || typeof l.id !== 'number') return;
+      if (seen[l.id]) return;
+      seen[l.id] = true;
+      out.push(l);
+    });
+    return out;
+  }
+
   async function loadColorsForListId(colorListId) {
     var full = await api.getColorList(colorListId);
     if (!full || !full.colors || !full.colors.length) return false;
@@ -112,28 +134,71 @@
     return true;
   }
 
+  function normalizeGenerations(data) {
+    if (!data) return [];
+    if (Array.isArray(data.generations)) return data.generations;
+    if (data.data && Array.isArray(data.data.generations)) return data.data.generations;
+    return [];
+  }
+
   async function loadWordsForListId(listId) {
-    var full = await api.getList(listId);
-    if (!full || !full.words) return emptyMatrixWord();
-    var words = full.words
+    var data = await api.getListWords(listId);
+    var generations = normalizeGenerations(data);
+    if (!generations.length) return emptyMatrixWord();
+
+    return generations
       .slice()
       .sort(function (a, b) {
-        if (a.position !== b.position) return a.position - b.position;
-        return a.id - b.id;
+        return (a.generation || 0) - (b.generation || 0);
       })
-      .map(function (w) {
-        return w.word;
+      .map(function (g) {
+        if (!Array.isArray(g.words)) return [];
+        return g.words
+          .map(function (w) {
+            if (w && typeof w === 'object') return String(w.word || '').trim();
+            return String(w || '').trim();
+          })
+          .filter(function (w) {
+            return w.length > 0;
+          });
       });
-    var row = words;
-    return [0, 1, 2, 3, 4, 5].map(function () {
-      return row.slice();
-    });
   }
 
   function emptyMatrixWord() {
-    return Array.from({ length: 6 }, function () {
+    return Array.from({ length: 1 }, function () {
       return [];
     });
+  }
+
+  function ownerLabel(list) {
+    if (!list || typeof list !== 'object') return '';
+    return (
+      list.owner_name ||
+      list.owner_username ||
+      list.username ||
+      (list.user && (list.user.name || list.user.username || list.user.email)) ||
+      list.user_name ||
+      ''
+    );
+  }
+
+  function ownerFullLabel(list) {
+    if (!list || typeof list !== 'object') return '';
+    var parts = [
+      (list.owner_username || '').trim(),
+      (list.owner_name || '').trim(),
+      (list.owner_email || '').trim(),
+    ].filter(function (p) {
+      return p.length > 0;
+    });
+    return parts.join(' -- ');
+  }
+
+  function formatWordListOptionLabel(list) {
+    var name = (list && list.name) || 'Lista #' + (list && list.id ? list.id : '?');
+    if (!list || !list.public) return name;
+    var owner = ownerFullLabel(list) || ownerLabel(list);
+    return owner ? name + ' - ' + owner : name;
   }
 
   function buildWordLevelSelects(matrixWord) {
@@ -169,7 +234,17 @@
     var sel = $('wordListSelect');
     if (!wrap || !sel) return;
 
-    var lists = await api.getLists();
+    var ownListsRaw = await api.getLists();
+    var ownLists = unwrapListArray(ownListsRaw);
+    var publicLists = [];
+    if (typeof api.getPublicLists === 'function') {
+      try {
+        publicLists = await api.getPublicLists();
+      } catch (e) {
+        publicLists = [];
+      }
+    }
+    var lists = mergeUniqueLists(ownLists, publicLists);
     if (!lists || !lists.length) {
       wrap.hidden = true;
       window.matrixWord = emptyMatrixWord();
@@ -186,7 +261,7 @@
     lists.forEach(function (l) {
       var o = document.createElement('option');
       o.value = String(l.id);
-      o.textContent = l.name || 'Lista #' + l.id;
+      o.textContent = formatWordListOptionLabel(l);
       if (l.id === selectedId) o.selected = true;
       sel.appendChild(o);
     });
@@ -280,6 +355,29 @@
     if (c) c.hidden = true;
   }
 
+  async function safeLogVisit(force) {
+    if (!api || typeof api.logVisit !== 'function') return;
+    var now = Date.now();
+    if (!force && now - __lastVisitLogMs < VISIT_LOG_THROTTLE_MS) return;
+    __lastVisitLogMs = now;
+    try {
+      await api.logVisit(new Date(now).toISOString());
+    } catch (e) {}
+  }
+
+  function wireVisitLogging() {
+    safeLogVisit(true);
+    ['click', 'change', 'keydown'].forEach(function (evt) {
+      document.addEventListener(
+        evt,
+        function () {
+          safeLogVisit(false);
+        },
+        { passive: true }
+      );
+    });
+  }
+
   /**
    * @param {{ userFallback?: object }} opts
    */
@@ -326,15 +424,20 @@
       buildWordLevelSelects(window.matrixWord);
     }
 
-    if (typeof window.initGameBoard === 'function' && !window.__gameBoardInited) {
-      window.initGameBoard();
-      window.__gameBoardInited = true;
-    } else if (typeof window.reDrawTable === 'function') {
+    if (typeof window.reDrawTable === 'function') {
       window.reDrawTable();
     }
 
     if (typeof window.CELLAUTO_boardSaveAuthChanged === 'function') {
       window.CELLAUTO_boardSaveAuthChanged();
+    }
+
+    var levelSel = document.getElementById('level');
+    if (
+      typeof window.ensureMaxGenSelectOptions === 'function' &&
+      (!levelSel || !levelSel.options || levelSel.options.length === 0)
+    ) {
+      window.ensureMaxGenSelectOptions();
     }
   }
 
@@ -356,6 +459,9 @@
   }
 
   async function onLogout() {
+    try {
+      if (typeof api.logout === 'function') await api.logout();
+    } catch (e) {}
     api.clearToken();
     setAuthBar(null);
     await loadAppData();
@@ -382,6 +488,11 @@
 
   document.addEventListener('DOMContentLoaded', function () {
     wireUi();
+    if (typeof window.initGameBoard === 'function' && !window.__gameBoardInited) {
+      window.initGameBoard();
+      window.__gameBoardInited = true;
+    }
+    wireVisitLogging();
     loadAppData();
   });
 })();

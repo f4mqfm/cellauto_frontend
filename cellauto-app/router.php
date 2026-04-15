@@ -95,6 +95,20 @@ if ($isApi) {
         $inHeaders[] = $k . ': ' . $v;
     }
 
+    $clientIp = $_SERVER['REMOTE_ADDR'] ?? '';
+    if ($clientIp !== '') {
+        $existingXff = '';
+        foreach ($hdrs as $k => $v) {
+            if (strtolower((string) $k) === 'x-forwarded-for') {
+                $existingXff = trim((string) $v);
+                break;
+            }
+        }
+        $xffValue = $existingXff !== '' ? ($existingXff . ', ' . $clientIp) : $clientIp;
+        $inHeaders[] = 'X-Forwarded-For: ' . $xffValue;
+        $inHeaders[] = 'X-Real-IP: ' . $clientIp;
+    }
+
     if (!empty($inHeaders)) {
         curl_setopt($ch, CURLOPT_HTTPHEADER, $inHeaders);
     }
@@ -168,6 +182,8 @@ if ($uri === '/' || $uri === '') {
     $file = $srcDir . '/index.html';
     if (is_file($file)) {
         header('Content-Type: text/html; charset=utf-8');
+        // Ne legyen elavult HTML a CDN/böngésző cache-ben (max gen, hex opció, stb.)
+        header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
         readfile($file);
         return true;
     }
