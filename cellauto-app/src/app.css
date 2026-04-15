@@ -258,6 +258,41 @@ body.app-shell {
   min-height: 1.2em;
 }
 
+.save-names-summary {
+  margin: 0.5rem 0 0;
+  padding: 0.5rem 0.65rem;
+  font-size: 0.85rem;
+  line-height: 1.35;
+  color: #444;
+  background: #f4f4f4;
+  border-radius: 6px;
+  border: 1px solid #ddd;
+}
+
+.login-modal__actions--spread {
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.login-modal__actions-right {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}
+
+.btn-modal-danger {
+  border: 1px solid #a33 !important;
+  background: #c42 !important;
+  color: #fff !important;
+}
+
+.btn-modal-danger:hover {
+  filter: brightness(0.92);
+}
+
 @media (max-width: 720px) {
   .app-body {
     flex-direction: column;

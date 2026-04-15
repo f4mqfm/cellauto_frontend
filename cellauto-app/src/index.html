@@ -115,6 +115,11 @@
         <select id="saveGroupSelect"></select>
         <label for="saveNewGroupName">Új csoport neve (opcionális)</label>
         <input type="text" id="saveNewGroupName" placeholder="Ha üres, a fenti csoportba ment">
+        <p id="saveNamesSummary" class="save-names-summary" aria-live="polite"></p>
+        <label for="saveOverwriteSelect">Meglévő mentés felülírása</label>
+        <select id="saveOverwriteSelect" disabled>
+          <option value="">— új mentés (név alább) —</option>
+        </select>
         <label for="saveNameInput">Mentés neve</label>
         <input type="text" id="saveNameInput" required maxlength="255" placeholder="pl. Feladat 1">
         <div class="login-modal__error" id="saveError"></div>
@@ -135,9 +140,12 @@
         <label for="loadSaveSelect">Mentés</label>
         <select id="loadSaveSelect"></select>
         <div class="login-modal__error" id="loadError"></div>
-        <div class="login-modal__actions">
-          <button type="button" id="loadCancel">Mégse</button>
-          <button type="button" id="loadSubmit">Betöltés</button>
+        <div class="login-modal__actions login-modal__actions--spread">
+          <button type="button" id="loadDelete" class="btn-modal-danger">Mentés törlése</button>
+          <span class="login-modal__actions-right">
+            <button type="button" id="loadCancel">Mégse</button>
+            <button type="button" id="loadSubmit">Betöltés</button>
+          </span>
         </div>
       </div>
     </div>
