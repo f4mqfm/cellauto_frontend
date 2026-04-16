@@ -1,0 +1,19 @@
+Wird List en egy kicsi midositas kell
+a lista neve az kell ugy hogy eddig is az marad valtozatlan
+viszont a szavak a kovetkezo formaban kell legyenek tarolva:
+most egy szolistahoz tartozo szavak tarolasarol beszelek:
+tehat adott egy szolista, peldaul: Angol Szavak" ez a lista neve
+ehez a kovetkezokeppen fognak tartozni a szavak:
+GEN1: door, world, sun, miidle, ...
+GEN2: kes, villa, ollo, madar, alma, asztal, ...
+GEN3: utazas, uszas, varas, alvas, eves, ...
+Gen4: ....
+lehessen akahany generaciot letrehozni
+minden generaciohoz legalabb egy szo kell tarozzon
+a generaciok 1 tol n ig lehessen letrehozni, szabadom bovitheto kell legyenek
+enek az api jat kerem a regi word az nem ell, ez kell helyette
+
+a lists ben vam egy public boolean mezo ami ha true ra van alitva akkor azt a listat mas is latja
+ilyenkor a lista neve moge elvalasztva oda kell irni a felhasznalot akie a lista
+ez is kivalaszthato a flhasznalonak
+kuloben csak a sajat listai jelennek moge

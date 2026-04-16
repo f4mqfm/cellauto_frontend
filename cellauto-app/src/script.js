@@ -1,6 +1,11 @@
 // 2024 Borsos László F4MQFM (lborsos@gmail.com)
 let viewRow = 30, viewCol = 30;
 const maxRow = 220, maxCol = 220;
+/** DOM cella-id: fix szélesség / oszlop és sor; a régi 2 jegy 100+ méretnél ütközött → rossz cella, „szakadó” minta. */
+const CELL_ID_PAD = 3;
+function cellDomId(col, row) {
+    return 'x' + String(col).padStart(CELL_ID_PAD, '0') + String(row).padStart(CELL_ID_PAD, '0');
+}
 const maxCycle = 100;
 const currentCycle = 10;
 var matrix = Array.from({ length: maxRow }, () => Array.from({ length: maxCol }, () => 0));
@@ -56,7 +61,7 @@ function createHexTable(create = true) {
                 var divIn = document.createElement('div');
                 divIn.innerHTML = "&nbsp;";
                 divIn.classList.add("hexagon__inner");
-                divIn.id = 'x' + String(xx).padStart(2, '0') + String(yy).padStart(2, '0');
+                divIn.id = cellDomId(xx, yy);
                 divIn.dataset.x = String(xx);
                 divIn.dataset.y = String(yy);
                 divOut.appendChild(divIn);
@@ -83,7 +88,7 @@ function createSquareTable(create = true) {
             var tr = document.createElement('tr');
             for (let j = 0; j < viewCol; j++) {
                 var td = document.createElement('td');
-                td.id = 'x' + String(j).padStart(2, '0') + String(i).padStart(2, '0');
+                td.id = cellDomId(j, i);
                 td.dataset.x = String(j);
                 td.dataset.y = String(i);
                 tr.appendChild(td);
@@ -100,7 +105,7 @@ function createSquareTable(create = true) {
 function addClickListenersSquare() {
     for (let i = 0; i < viewRow; i++) {
         for (let j = 0; j < viewCol; j++) {
-            let cell = document.getElementById('x' + String(j).padStart(2, '0') + String(i).padStart(2, '0'));
+            let cell = document.getElementById(cellDomId(j, i));
             cell.addEventListener('mousedown', function (ev) { handleCellMouseDown(ev, j, i); });
             cell.addEventListener('mouseenter', function () { handleCellMouseEnter(j, i); });
             cell.addEventListener('mouseenter', function () { showCellHoverPreview(j, i); });
@@ -113,7 +118,7 @@ function addClickListenersHex() {
     for (let i = 0; i < viewRow; i++) {
         for (let j = 0; j < viewCol; j++) {
             if (!(i % 2 != 0 && j == viewCol - 1)) {
-                let cell = document.getElementById('x' + String(j).padStart(2, '0') + String(i).padStart(2, '0'));
+                let cell = document.getElementById(cellDomId(j, i));
                 cell.addEventListener('mousedown', function (ev) { handleCellMouseDown(ev, j, i); });
                 cell.addEventListener('mouseenter', function () { handleCellMouseEnter(j, i); });
                 cell.addEventListener('mouseenter', function () { showCellHoverPreview(j, i); });
@@ -129,7 +134,7 @@ function hideCellHoverPreview() {
 }
 
 function showCellHoverPreview(col, row) {
-    const cell = document.getElementById('x' + String(col).padStart(2, '0') + String(row).padStart(2, '0'));
+    const cell = document.getElementById(cellDomId(col, row));
     if (!cell) return;
     const txt = (cell.textContent || '')
         .replace(/\u00a0/g, '')
@@ -202,7 +207,7 @@ function closeWordQuickPicker() {
 }
 
 function applyWordToCell(col, row, value) {
-    let cell = document.getElementById('x' + String(col).padStart(2, '0') + String(row).padStart(2, '0'));
+    let cell = document.getElementById(cellDomId(col, row));
     if (!cell) return;
     if (!value || value === '---') {
         cell.innerHTML = '&nbsp;';
@@ -216,7 +221,7 @@ function openWordQuickPicker(col, row) {
     const source = document.getElementById('lev' + generation);
     if (!source) return;
 
-    const targetCell = document.getElementById('x' + String(col).padStart(2, '0') + String(row).padStart(2, '0'));
+    const targetCell = document.getElementById(cellDomId(col, row));
     if (!targetCell) return;
 
     closeWordQuickPicker();
@@ -277,7 +282,7 @@ function toggleCell(col, row) {
         // let drawLevel = document.getElementById('drawLevel').value;
         let drawLevel = document.querySelector('input[name="drawLevel"]:checked').value;
         let mode = document.getElementById('mode').value;
-        let cell = document.getElementById('x' + String(col).padStart(2, '0') + String(row).padStart(2, '0'));
+        let cell = document.getElementById(cellDomId(col, row));
         if (matrix[col][row] === 0) {
             matrix[col][row] = mode == 'play' ? 1 : drawLevel;
             // cell.classList.add('colorStart');
@@ -309,7 +314,7 @@ function reDrawTable() {
     let cellValue = 0;
     for (let i = 0; i < viewRow; i++) {
         for (let j = 0; j < viewCol - ((i % 2 != 0) && (board == 'hex')); j++) {
-            cell = document.getElementById('x' + String(j).padStart(2, '0') + String(i).padStart(2, '0'));
+            cell = document.getElementById(cellDomId(j, i));
             removeColors(cell);
             removeVerifyColors(cell);
             cellValue = matrix[j][i]
@@ -389,7 +394,7 @@ async function renderTableVerify() {
 function addVerifyClass(x, y, cl) {
     // console.log(x,y,cl);
     matrixVerifyChecked[x][y] = 1;
-    cell = document.getElementById('x' + String(x).padStart(2, '0') + String(y).padStart(2, '0'));
+    cell = document.getElementById(cellDomId(x, y));
     // if (cell.classList.length == (board=='hex' ? 1 : 0)) {
     if (cl != 'ok') errorCount++;
     cell.classList.add(cl);
@@ -682,7 +687,7 @@ function paintPlacementPreview(norm, ox, oy) {
         const c = norm.cells[i];
         const x = ox + c.x;
         const y = oy + c.y;
-        const cell = document.getElementById('x' + String(x).padStart(2, '0') + String(y).padStart(2, '0'));
+        const cell = document.getElementById(cellDomId(x, y));
         if (!cell) continue;
         const colorClass = 'color' + (((c.v - 1 + nrOfColors) % nrOfColors) + 1);
         cell.classList.add(colorClass);
@@ -835,7 +840,7 @@ async function renderTable(reset = false) {
         for (let i = 0; i < viewRow; i++) {
             for (let j = 0; j < viewCol - ((i % 2 != 0) && (board == 'hex')); j++) {
 
-                cell = document.getElementById('x' + String(j).padStart(2, '0') + String(i).padStart(2, '0'));
+                cell = document.getElementById(cellDomId(j, i));
                 if (reset) {
                     // cell.className = '';
                 }
@@ -883,7 +888,7 @@ function resetMartixValue() {
 //     let cell = '';
 //     for (let i = 0; i < viewRow; i++) {
 //         for (let j = 0; j < viewCol-((i % 2 != 0) && (board=='hex')); j++) {
-//             cell = document.getElementById('x' + String(j).padStart(2, '0') + String(i).padStart(2, '0'));
+//             cell = document.getElementById(cellDomId(j, i));
 //             if (!(matrix[j][i]==1 && opt==1)) {
 //                 matrix[j][i] = 0;
 //                 if (board!='hex') {

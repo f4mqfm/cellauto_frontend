@@ -229,6 +229,7 @@
     });
   }
 
+
   async function setupWordListsAndMatrix() {
     var wrap = $('wordListPickerWrap');
     var sel = $('wordListSelect');
@@ -266,11 +267,23 @@
       sel.appendChild(o);
     });
 
-    wrap.hidden = lists.length <= 1;
+    // Ne rejtsük el az egész blokkot egy lista esetén sem.
+    wrap.hidden = false;
+    sel.disabled = lists.length <= 1;
 
-    var mw = await loadWordsForListId(selectedId);
-    window.matrixWord = mw;
-    buildWordLevelSelects(mw);
+    try {
+      var mw = await loadWordsForListId(selectedId);
+      window.matrixWord = mw;
+      window.__cellautoLastWordListId = selectedId;
+      buildWordLevelSelects(mw);
+    } catch (e) {
+      // 403: pl. public lista szavai nincsenek engedélyezve ezen a szerveren.
+      if (typeof window.showToast === 'function') {
+        window.showToast('Szólista betöltése nem engedélyezett (HTTP ' + (e && e.status ? e.status : '?') + ').', 5000);
+      }
+      window.matrixWord = emptyMatrixWord();
+      buildWordLevelSelects(window.matrixWord);
+    }
 
     if (!sel._cellautoWired) {
       sel._cellautoWired = true;
@@ -289,9 +302,19 @@
     try {
       var mw = await loadWordsForListId(id);
       window.matrixWord = mw;
+      window.__cellautoLastWordListId = id;
       buildWordLevelSelects(mw);
       if (typeof window.reDrawTable === 'function') window.reDrawTable();
-    } catch (e) {}
+    } catch (e) {
+      // 403: ne dobjuk ki a tokent, csak jelezzük és állítsuk vissza a legutóbbi jó listára.
+      if (typeof window.showToast === 'function') {
+        window.showToast('Szólista betöltése nem engedélyezett (HTTP ' + (e && e.status ? e.status : '?') + ').', 6000);
+      }
+      var prev = window.__cellautoLastWordListId;
+      if (prev && sel.querySelector('option[value="' + prev + '"]')) {
+        sel.value = String(prev);
+      }
+    }
   }
 
   async function setupColorListsAndApply() {

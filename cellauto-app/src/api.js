@@ -12,7 +12,7 @@
 
   var API_BASE = (global.CELLAUTO_API_BASE || '/api').replace(/\/$/, '');
   var TOKEN_KEY = 'cellauto_token';
-  var ENTRY_POINT = 'www';
+  var ENTRY_POINT = global.CELLAUTO_ENTRY_POINT || 'www';
 
   function getToken() {
     try {
@@ -113,6 +113,20 @@
       var err = new Error(msg);
       err.status = res.status;
       err.data = data;
+
+      // Ha a token érvénytelen (lejárt / törölt), lépjünk ki automatikusan.
+      // 403 lehet "valódi" tiltás is (pl. más user listájára), ezért ott NEM törlünk tokent.
+      if (res.status === 401 && token) {
+        try {
+          clearToken();
+        } catch (e) {}
+        try {
+          if (typeof global.CELLAUTO_boardSaveAuthChanged === 'function') global.CELLAUTO_boardSaveAuthChanged();
+        } catch (e) {}
+        try {
+          document.dispatchEvent(new CustomEvent('cellauto:auth-invalid', { detail: { status: res.status, path: path } }));
+        } catch (e) {}
+      }
       throw err;
     }
 

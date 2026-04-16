@@ -246,6 +246,13 @@
   }
 
   function formatApiError(e) {
+    if (e && (e.status === 401 || e.status === 403)) {
+      return (
+        'Nincs jogosultság (HTTP ' +
+        e.status +
+        '). Valószínű ok: nem vagy belépve ezen az oldalon (www vs lokális más origin), lejárt a token, vagy nem a saját csoportodat/mentésedet próbálod felülírni. Lépj be újra.'
+      );
+    }
     if (!e || !e.data || typeof e.data !== 'object') return e && e.message ? e.message : 'Hiba';
     var d = e.data;
     if (d.message) return d.message;

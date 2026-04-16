@@ -2,12 +2,17 @@
 const viewRow = 31, viewCol = 31;
 const maxRow = 100, maxCol = 100;
 const elements = 946;
-const maxCycle = 30;
+const maxCycle = 100;
 const currentCycle = 10;
 var matrix = Array.from({ length: maxRow }, () => Array.from({ length: maxCol }, () => 0));
 var matrixVerify = Array.from({ length: maxRow }, () => Array.from({ length: maxCol }, () => 0));
 var matrixVerifyChecked = Array.from({ length: maxRow }, () => Array.from({ length: maxCol }, () => 0));
-const boardDiv = document.getElementById("boardDiv");
+
+/** Ne rögzítsük a betöltés pillanatában: headben/késő BB-ben futó script esetén még nincs #boardDiv → null → üres Max gen. */
+function boardDivEl() {
+    return document.getElementById('boardDiv');
+}
+
 const nrOfColors = 6;
 var method = '';
 var maxLevel = 10;
@@ -42,15 +47,20 @@ function createHexTable(create = true) {
                 yy++;
             }
         }
-        boardDiv.appendChild(div1);
+        var bd = boardDivEl();
+        if (!bd) return;
+        bd.appendChild(div1);
     } else {
-        boardDiv.innerHTML = '';
+        var bdClear = boardDivEl();
+        if (bdClear) bdClear.innerHTML = '';
     }
 }
 
 
 function createSquareTable(create = true) {
     if (create) {
+        var bd = boardDivEl();
+        if (!bd) return;
         var table = document.createElement('table');
         for (let i = 0; i < viewRow; i++) {
             var tr = document.createElement('tr');
@@ -61,9 +71,10 @@ function createSquareTable(create = true) {
             }
             table.appendChild(tr);
         }
-        boardDiv.appendChild(table);
+        bd.appendChild(table);
     } else {
-        boardDiv.innerHTML = '';
+        var bd2 = boardDivEl();
+        if (bd2) bd2.innerHTML = '';
     }
 }
 
@@ -537,73 +548,84 @@ function resetMartixValue() {
 //     }
 // }
 
-document.getElementById('neighbors').addEventListener('change', function () {
-    var boradTmp = this.value;
-    if (board == 'square' && boradTmp == 'hex') {
-        board = 'hex';
-        createSquareTable(false);
-        createHexTable();
-        addClickListenersHex();
-        resetMartixValue();
-    }
-    if (board == 'hex' && boradTmp != 'hex') {
-        board = 'square';
-        createHexTable(false);
-        createSquareTable();
-        addClickListenersSquare();
-        resetMartixValue();
-    }
-    if (this.value === 'life') {
-        // opcionális: automatikus reset + demo seed
-        resetMartixValue();
-        seedLifeDemo();
-    }
-});
+function cellautoWireUiAndInit() {
+    var neighborsEl = document.getElementById('neighbors');
+    var modeEl = document.getElementById('mode');
+    if (!neighborsEl || !modeEl) return;
 
-document.getElementById('mode').addEventListener('change', function () {
-    var curMode = this.value;
-    if (modePT == 'play' && curMode == 'test') {
-        modePT = curMode;
-        document.getElementById('verifySection').classList.remove('hidden');
-        document.getElementById('check').classList.add('hidden');
-        document.getElementById('btnVerify').classList.remove('hidden');
-        document.getElementById('level1').checked = true;
-        document.getElementById('level').value = maxLevelVerify;
-    }
-    if (modePT == 'test' && curMode == 'play') {
-        modePT = curMode;
-        document.getElementById('verifySection').classList.add('hidden');
-        document.getElementById('btnVerify').classList.add('hidden');
-        document.getElementById('check').classList.remove('hidden');
-        document.getElementById('level').value = maxLevel;
-    }
-});
+    neighborsEl.addEventListener('change', function () {
+        var boradTmp = this.value;
+        if (board == 'square' && boradTmp == 'hex') {
+            board = 'hex';
+            createSquareTable(false);
+            createHexTable();
+            addClickListenersHex();
+            resetMartixValue();
+        }
+        if (board == 'hex' && boradTmp != 'hex') {
+            board = 'square';
+            createHexTable(false);
+            createSquareTable();
+            addClickListenersSquare();
+            resetMartixValue();
+        }
+        if (this.value === 'life') {
+            resetMartixValue();
+            seedLifeDemo();
+        }
+    });
 
-window.onload = function () {
+    modeEl.addEventListener('change', function () {
+        var curMode = this.value;
+        if (modePT == 'play' && curMode == 'test') {
+            modePT = curMode;
+            document.getElementById('verifySection').classList.remove('hidden');
+            document.getElementById('check').classList.add('hidden');
+            document.getElementById('btnVerify').classList.remove('hidden');
+            document.getElementById('level1').checked = true;
+            document.getElementById('level').value = maxLevelVerify;
+        }
+        if (modePT == 'test' && curMode == 'play') {
+            modePT = curMode;
+            document.getElementById('verifySection').classList.add('hidden');
+            document.getElementById('btnVerify').classList.add('hidden');
+            document.getElementById('check').classList.remove('hidden');
+            document.getElementById('level').value = maxLevel;
+        }
+    });
+
+    /* Max gen. először — ha createSquareTable elszállna, így is legyen lista (1…maxCycle) */
+    var select = document.getElementById('level');
+    if (select) {
+        select.innerHTML = '';
+        for (let i = 1; i <= maxCycle; i++) {
+            var option = document.createElement('option');
+            option.value = String(i);
+            option.textContent = String(i);
+            if (i === currentCycle) option.selected = true;
+            select.appendChild(option);
+        }
+    }
     createSquareTable();
     addClickListenersSquare();
-    document.getElementById('neighbors').value = 'side';
-    document.getElementById('mode').value = 'play';
+    neighborsEl.value = 'side';
+    modeEl.value = 'play';
     document.getElementById('verifySection').classList.add('hidden');
     document.getElementById('btnVerify').classList.add('hidden');
-    const select = document.getElementById("level");
-    for (i = 2; i <= maxCycle; i++) {
-        var option = document.createElement("option");
-        option.value = i.toString();
-        option.text = i;
+}
 
-        if (i === currentCycle) {
-            option.selected = true;
-        }
-        select.appendChild(option);
-    }
-};
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', cellautoWireUiAndInit);
+} else {
+    cellautoWireUiAndInit();
+}
 
 // A scriptet elhelyezheted a HTML oldalad <head> részében vagy a <body> végén
 
 document.addEventListener('DOMContentLoaded', function () {
     var tabla = document.getElementById('boardDiv'); // Azonosítjuk a formot
     var form = document.getElementById('drawLevel'); // Azonosítjuk a formot
+    if (!tabla || !form) return;
 
     tabla.addEventListener('contextmenu', function (event) {
         event.preventDefault(); // Megakadályozza a kontextusmenü megjelenését
