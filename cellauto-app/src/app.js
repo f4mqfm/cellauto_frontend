@@ -18,6 +18,7 @@
     var userEl = $('authUser');
     var loginBtn = $('btnLogin');
     var logoutBtn = $('btnLogout');
+    window.CELLAUTO_currentUser = user || null;
     if (!userEl || !loginBtn || !logoutBtn) return;
 
     if (user) {

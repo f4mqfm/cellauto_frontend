@@ -1,0 +1,22 @@
+Legyen egy vizsga szekcio a Tabla mentese ala:
+Vizsga/Gyakorlas inditasa gombal
+Lehessen kivalasztani a lerrehozott taskok kozul, hogy meliket akarom megoldani
+ket gombal tudjak tovabb menni: Gyakorlas - Vizsga
+en dontom el, hogy milyen modba induljon
+a kivalasztott feladat toltodjon be, ha kell valtson hex re vagy negyzetracsosra es toltse be az elmentett taskot
+
+a sejthalo nm mindehol van kitoltve, vagyis lehet, hogy csak a kiindulo van megadva es en kell katoktassak 
+a kovtkeo generacios cellakra de lehet felig is kitoltve, attol fugg hogy volt elmentve
+
+Valahova ki kell irn a kepernyore a parametereket
+Generacios mod, Generaciok szama
+Osszesen hany jo cella letezik ami megadhato (ugye megvan adva, hogy hany gemneraciot kell kitolteni, elore mar ki van toltve 1 vagy nehany, azt kell megszamolni, hogy hany nincs kitoltve es az a totl good cell)
+A lehetseges mondatok szama:
+
+
+
+1: Gyakorlas mod:
+vegtelen ido van, az ido szamolodik de nem jar le sose, addig gyakorlok mig meg nem unom
+ha katintok egy cellaba es rossz hejre katintok mert nincs ott nincs heje sejt generacioinak
+akkor hibauzenet toast ba, hogy: "Nem generacios cella"
+es a bad cell egyel no a kepernyon

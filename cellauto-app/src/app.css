@@ -469,7 +469,8 @@ body.app-shell {
 /* Felülírjuk a style.css globális form / label szabályait */
 #loginForm,
 #saveForm,
-#loadForm {
+#loadForm,
+#taskSaveForm {
   display: flex;
   flex-direction: column;
   align-items: stretch;
@@ -478,7 +479,8 @@ body.app-shell {
 
 #loginForm label,
 #saveForm label,
-#loadForm label {
+#loadForm label,
+#taskSaveForm label {
   display: block;
   margin: 0.85rem 0 0;
   padding: 0;
@@ -492,7 +494,8 @@ body.app-shell {
 
 #loginForm label:first-of-type,
 #saveForm label:first-of-type,
-#loadForm label:first-of-type {
+#loadForm label:first-of-type,
+#taskSaveForm label:first-of-type {
   margin-top: 0;
 }
 
@@ -500,7 +503,10 @@ body.app-shell {
 #loginForm input[type='password'],
 #saveForm input[type='text'],
 #saveForm select,
-#loadForm select {
+#loadForm select,
+#taskSaveForm input[type='text'],
+#taskSaveForm input[type='number'],
+#taskSaveForm select {
   width: 100%;
   box-sizing: border-box;
   margin-top: 0.35rem;
@@ -515,7 +521,9 @@ body.app-shell {
 #loginForm input:focus,
 #saveForm input:focus,
 #saveForm select:focus,
-#loadForm select:focus {
+#loadForm select:focus,
+#taskSaveForm input:focus,
+#taskSaveForm select:focus {
   outline: none;
   border-color: #2c5aa0;
   box-shadow: 0 0 0 2px rgba(44, 90, 160, 0.2);

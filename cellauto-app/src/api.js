@@ -322,6 +322,28 @@
     return apiFetch('DELETE', '/board-save-groups/' + groupId + '/saves/' + saveId, null, true);
   }
 
+  async function getTaskSaveGroups() {
+    var d = await apiFetch('GET', '/task-save-groups', null, true);
+    return unwrapArray(d);
+  }
+
+  async function createTaskSaveGroup(body) {
+    return apiFetch('POST', '/task-save-groups', body, true);
+  }
+
+  async function getTaskSaves(groupId) {
+    var d = await apiFetch('GET', '/task-save-groups/' + groupId + '/saves', null, true);
+    return unwrapArray(d);
+  }
+
+  async function createTaskSave(groupId, body) {
+    return apiFetch('POST', '/task-save-groups/' + groupId + '/saves', body, true);
+  }
+
+  async function updateTaskSave(groupId, saveId, body) {
+    return apiFetch('PUT', '/task-save-groups/' + groupId + '/saves/' + saveId, body, true);
+  }
+
   global.CELLautoApi = {
     API_BASE: API_BASE,
     getToken: getToken,
@@ -352,5 +374,10 @@
     getBoardSave: getBoardSave,
     updateBoardSave: updateBoardSave,
     deleteBoardSave: deleteBoardSave,
+    getTaskSaveGroups: getTaskSaveGroups,
+    createTaskSaveGroup: createTaskSaveGroup,
+    getTaskSaves: getTaskSaves,
+    createTaskSave: createTaskSave,
+    updateTaskSave: updateTaskSave,
   };
 })(typeof window !== 'undefined' ? window : globalThis);

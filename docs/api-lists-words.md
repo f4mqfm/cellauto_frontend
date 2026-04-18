@@ -22,6 +22,13 @@ Authorization: Bearer <TOKEN>
 
 ## Listák (lists)
 
+### Megjegyzés és szöveges szólista (admin szerkesztéshez)
+
+A lista rekordban két opcionális szövegmező van; az API **nem értelmezi** a tartalmukat, csak tárolja és visszaadja (az admin felület dolgozik belőlük):
+
+- **`notes`**: többsoros megjegyzés (textarea), tetszőleges szöveg.
+- **`wordlist`**: egy nagy szövegblokk; a felhasználó ide viheti előre összeállított, pontosvesszővel elválasztott szavakat / sorokat. A `*` prefixű sorok jelentése az admin UI szabálya; az API számára ez csak sima szöveg.
+
 ### GET `/api/lists`
 
 A bejelentkezett user **saját listái**.
@@ -33,9 +40,11 @@ Lista létrehozása.
 - **Body**
   - `name` (string, kötelező, max 255)
   - `public` (boolean, opcionális, default: `false`)
+  - `notes` (string, opcionális, többsor is lehet)
+  - `wordlist` (string, opcionális, nagy szöveg; pl. pontosvesszővel tagolt szavak)
 
 - **201 Created válasz**
-  - lista rekord (legalább: `id`, `user_id`, `name`, `public`)
+  - lista rekord (legalább: `id`, `user_id`, `name`, `public`, `notes`, `wordlist`)
 
 Példa:
 
@@ -55,11 +64,13 @@ Egy lista lekérése **a szavaival együtt** (`words` reláció betöltve, gener
 
 ### PUT `/api/lists/{list}`
 
-Lista átnevezése.
+Lista frissítése (név, láthatóság, megjegyzés, szöveges szólista).
 
 - **Body**
   - `name` (string, kötelező, max 255)
   - `public` (boolean, opcionális; ha nincs megadva, marad a korábbi érték)
+  - `notes` (string, opcionális; ha nincs megadva, marad a korábbi érték)
+  - `wordlist` (string, opcionális; ha nincs megadva, marad a korábbi érték)
 
 - **Jogosultság**
   - Ha nem a useré: **403**
@@ -175,6 +186,52 @@ Szó törlése.
   - Ha a lista nem a useré: **403**
   - Ha a `{word}` nem ehhez a listához tartozik: **404**
   - Ha az adott generációban ez az utolsó szó lenne: **422**
+
+## Szó-relációk (GENn -> GENn+1)
+
+A relációkat csak **szomszédos generációk** között lehet megadni:
+
+- `GEN1 -> GEN2`
+- `GEN2 -> GEN3`
+- ...
+
+### GET `/api/lists/{list}/word-relations`
+
+Relációk listázása.
+
+- **Query (opcionális)**
+  - `from_generation` (integer): ha megadod, csak az adott GEN-ből induló relációk jönnek vissza
+
+### POST `/api/lists/{list}/word-relations`
+
+Egy reláció létrehozása.
+
+- **Body**
+  - `from_word_id` (integer, kötelező)
+  - `to_word_id` (integer, kötelező)
+
+- **Szabály**
+  - csak akkor engedett, ha `to.generation = from.generation + 1`
+
+Példa:
+
+```bash
+curl -X POST http://localhost:8000/api/lists/1/word-relations \
+  -H "Authorization: Bearer <TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{"from_word_id":10,"to_word_id":25}'
+```
+
+### PUT `/api/lists/{list}/word-relations/from/{fromWord}`
+
+Egy adott „from” szó összes kimenő relációjának cseréje (admin szerkesztéshez kényelmes).
+
+- **Body**
+  - `to_word_ids` (integer tömb, kötelező; lehet üres tömb is)
+
+### DELETE `/api/lists/{list}/word-relations/{relation}`
+
+Reláció törlése.
 
 ## Frontend hívásminták (generation alapú)
 

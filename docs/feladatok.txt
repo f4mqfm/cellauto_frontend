@@ -1,0 +1,24 @@
+Kell egy olyan resz mint a board_saves es board_save_group de kibovitve:
+neve legyen task_saves es task_save_group
+Egy racs allapotat kell elmenteni hasonloan mint a mentes a board ra de...
+el kell tarolni a generacios modot (Square Laterel, Suare Apex, Hexagonal) a tabla meretet,
+meg be kell kerni a generaciok szamat, szolistat kell valasztani, ne legyen kotelezo, ha ki van valasztva lehessen kiszedni
+a szolista generacioinak a szama egyeznie kell a kivalasztott generaciok szamaval
+ne lehessen valasztani peldaul ha generaciok szamat 5 re allitottam be akkor ne alaszthassak olyan szolistat ami ettol eltero
+time_limit ami masodpercbe adhato meg
+
+
+kell meg egy tabla task_evaluation
+ebbe lessz tartolva ha egy user egy taskot megold
+user_id, date, note:text
+numerikus mezok: total_good_cell, good_cell, bad_cell, possible_sentence, good_sentence, bad_sentence, completed_time
+
+edigg a leiras az API resznek szolista
+
+most kovetkezik a www nek tehet ide:
+
+kell megjelenjen a Tabla mentes melle,olyan, hogy feladat mentes gomb
+ami hasonlo a tabla menteshez de bejon meg par dolog amit fenneb le van irva a task_saves, task_save_group nal
+ezeket kezitsd el, a Feladat mentes re kattintva ellenorizodjon, hogy tanare a fehasznalo, esetleg lehet admin is es akkor engedelyezze a gombot
+ha user vagy vendeg akkr csa uzenet jelenik meg: Ehez Tanari jogosultsag szukseges vagy admin
+

@@ -189,6 +189,7 @@
           <div class="app-save-load__btns">
             <button type="button" id="btnOpenSaveModal" class="button">Mentés…</button>
             <button type="button" id="btnOpenLoadModal" class="button">Betöltés…</button>
+            <button type="button" id="btnOpenTaskSaveModal" class="button">Feladat mentés…</button>
           </div>
         </div>
       </aside>
@@ -252,6 +253,47 @@
     </div>
   </div>
 
+  <div class="login-backdrop" id="taskSaveBackdrop" aria-hidden="true">
+    <div class="login-modal" role="dialog" aria-labelledby="taskSaveModalTitle">
+      <h3 id="taskSaveModalTitle">Feladat mentése</h3>
+      <div id="taskSaveForm">
+        <label for="taskSaveGroupSelect">Csoport</label>
+        <select id="taskSaveGroupSelect"></select>
+        <label for="taskSaveNewGroupName">Új csoport neve (opcionális)</label>
+        <input type="text" id="taskSaveNewGroupName" placeholder="Ha üres, a fenti csoportba ment">
+        <label for="taskSaveOverwriteSelect">Meglévő feladat felülírása</label>
+        <select id="taskSaveOverwriteSelect" disabled>
+          <option value="">— új mentés (név alább) —</option>
+        </select>
+        <label for="taskSaveNameInput">Feladat neve</label>
+        <input type="text" id="taskSaveNameInput" required maxlength="255" placeholder="pl. Feladat 1">
+        <label for="taskGenerationsCount">Generációk száma</label>
+        <select id="taskGenerationsCount">
+          <option value="2">2</option>
+          <option value="3">3</option>
+          <option value="4">4</option>
+          <option value="5" selected>5</option>
+          <option value="6">6</option>
+          <option value="7">7</option>
+          <option value="8">8</option>
+          <option value="9">9</option>
+          <option value="10">10</option>
+        </select>
+        <label for="taskWordListSelect">Szólista (opcionális)</label>
+        <select id="taskWordListSelect">
+          <option value="">— nincs —</option>
+        </select>
+        <label for="taskTimeLimit">Időlimit (másodperc)</label>
+        <input type="number" id="taskTimeLimit" min="1" step="1" value="120">
+        <div class="login-modal__error" id="taskSaveError"></div>
+        <div class="login-modal__actions">
+          <button type="button" id="taskSaveCancel">Mégse</button>
+          <button type="button" id="taskSaveSubmit">Mentés</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="login-backdrop" id="loginBackdrop" aria-hidden="true">
     <div class="login-modal" role="dialog" aria-labelledby="loginTitle">
       <h3 id="loginTitle">Bejelentkezés</h3>
@@ -276,6 +318,7 @@
   <script src="./script.js?v=5"></script>
   <script src="./app.js?v=5"></script>
   <script src="./board-save.js?v=5"></script>
+  <script src="./task-save.js?v=1"></script>
 </body>
 
 </html>
