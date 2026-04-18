@@ -26,8 +26,10 @@
 
   function setVisibility() {
     var wrap = $('saveLoadWrap');
-    if (!wrap) return;
-    wrap.hidden = !api.getToken();
+    var vz = $('vizsgaWrap');
+    var vis = !!api.getToken();
+    if (wrap) wrap.hidden = !vis;
+    if (vz) vz.hidden = !vis;
   }
 
   function parseLoadSelection() {

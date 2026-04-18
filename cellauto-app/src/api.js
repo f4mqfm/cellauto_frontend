@@ -344,6 +344,15 @@
     return apiFetch('PUT', '/task-save-groups/' + groupId + '/saves/' + saveId, body, true);
   }
 
+  async function getTaskSave(groupId, saveId) {
+    return apiFetch('GET', '/task-save-groups/' + groupId + '/saves/' + saveId, null, true);
+  }
+
+  /** docs/api-task-saves.md — POST /api/task-saves/{task_save}/evaluations */
+  async function createTaskEvaluation(taskSaveId, body) {
+    return apiFetch('POST', '/task-saves/' + taskSaveId + '/evaluations', body, true);
+  }
+
   global.CELLautoApi = {
     API_BASE: API_BASE,
     getToken: getToken,
@@ -379,5 +388,7 @@
     getTaskSaves: getTaskSaves,
     createTaskSave: createTaskSave,
     updateTaskSave: updateTaskSave,
+    getTaskSave: getTaskSave,
+    createTaskEvaluation: createTaskEvaluation,
   };
 })(typeof window !== 'undefined' ? window : globalThis);

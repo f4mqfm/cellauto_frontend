@@ -81,6 +81,7 @@ Lista törlése.
 
 - **Mellékhatás**
   - a lista összes szava is törlődik (`words` rekordok)
+  - a `word_gen_messages` rekordok is törlődnek (FK)
 
 - **Jogosultság**
   - Ha nem a useré: **403**
@@ -186,6 +187,73 @@ Szó törlése.
   - Ha a lista nem a useré: **403**
   - Ha a `{word}` nem ehhez a listához tartozik: **404**
   - Ha az adott generációban ez az utolsó szó lenne: **422**
+
+## Generációs üzenetek (`word_gen_messages`)
+
+Minden létező generációhoz (GEN1..GENn, a szavak szerint) két opcionális szöveg tárolható: helyes / helytelen válasz üzenet.
+
+- **Adatmodell**: `lists_word.id` + `generation` egyedi; `correct_answer_message`, `incorrect_answer_message` (TEXT, nullable).
+
+### GET `/api/lists/{list}/word-gen-messages`
+
+Üzenetek lekérése generációnként (a lista szavainak generációstruktúrájához igazítva).
+
+- **200 OK** – példa:
+
+```json
+{
+  "list_id": 1,
+  "generations": [
+    {
+      "generation": 1,
+      "correct_answer_message": "Így is lehet.",
+      "incorrect_answer_message": "Próbáld újra."
+    },
+    {
+      "generation": 2,
+      "correct_answer_message": null,
+      "incorrect_answer_message": null
+    }
+  ]
+}
+```
+
+- **Jogosultság**: olvasás ugyanaz, mint a listánál (`canReadList`: saját vagy publikus).
+- **422**: ha a `words` táblában a generációk nem folytonosak 1-től N-ig (adat‑inkonzisztencia).
+
+### PUT `/api/lists/{list}/word-gen-messages`
+
+Összes generációs üzenet mentése egyben (lista tulajdonosa).
+
+- **Body**
+  - `generations`: tömb – minden elem:
+    - `generation` (integer, kötelező, >= 1)
+    - `correct_answer_message` (string, opcionális / null)
+    - `incorrect_answer_message` (string, opcionális / null)
+
+- **Szabályok**
+  - A tömb elemszáma és a `generation` értékek meg kell egyezzenek a lista aktuális szó-generációival (1..N, ahogy a GET `/lists/{list}/words` is várja).
+  - Ha még nincs egyetlen szó sem a listában: `generations` csak üres tömb (`[]`) lehet; ekkor az üzenettáblában lévő sorok törlődnek.
+  - Mentés után a válasz megegyezik a GET `word-gen-messages` formátumával (**200 OK**).
+
+- **Jogosultság**
+  - Csak a lista tulajdonosa: **403** egyébként.
+
+Példa:
+
+```bash
+curl -X PUT http://localhost:8000/api/lists/1/word-gen-messages \
+  -H "Authorization: Bearer <TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "generations": [
+      { "generation": 1, "correct_answer_message": "Szép!", "incorrect_answer_message": "Rossz." },
+      { "generation": 2, "correct_answer_message": null, "incorrect_answer_message": null }
+    ]
+  }'
+```
+
+**Megjegyzés:** Ha a teljes szóstruktúrát `PUT /lists/{list}/word-generations` frissíti, és csökken a generációk száma, a már nem létező generációkhoz tartozó üzenetsorok automatikusan törlődnek.
 
 ## Szó-relációk (GENn -> GENn+1)
 

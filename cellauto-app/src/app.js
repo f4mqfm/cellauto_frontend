@@ -57,6 +57,13 @@
   }
 
   function applyDynamicColors(hexList) {
+    var src = hexList && hexList.length ? hexList : DEFAULT_HEX_COLORS.slice();
+    var padded = [];
+    for (var p = 0; p < 6; p++) {
+      padded[p] = src[p] || DEFAULT_HEX_COLORS[p];
+    }
+    window.CELLAUTO_lastPaletteHex = padded.slice();
+
     var head = document.head;
     var old = document.getElementById('cellauto-dynamic-colors');
     if (old) old.remove();
@@ -64,13 +71,15 @@
     var style = document.createElement('style');
     style.id = 'cellauto-dynamic-colors';
     var css = '';
-    for (var i = 0; i < Math.min(6, hexList.length); i++) {
-      var c = hexList[i];
-      if (!c) continue;
-      css += '.color' + (i + 1) + '{background-color:' + c + '!important;}\n';
+    for (var i = 0; i < 6; i++) {
+      css += '.color' + (i + 1) + '{background-color:' + padded[i] + '!important;}\n';
     }
     style.textContent = css;
     head.appendChild(style);
+
+    if (typeof window.CELLAUTO_refreshExamGenPills === 'function') {
+      window.CELLAUTO_refreshExamGenPills();
+    }
   }
 
   function clearDynamicColors() {
@@ -80,6 +89,7 @@
 
   function applyGuestColors() {
     clearDynamicColors();
+    window.CELLAUTO_lastPaletteHex = DEFAULT_HEX_COLORS.slice();
   }
 
   function pickSavedListId(lists, storageKey) {

@@ -159,11 +159,39 @@ function showCellHoverPreview(col, row) {
     cellHoverPreviewEl.classList.add('is-visible');
 }
 
+function activeDrawLevelFromUi() {
+    let drawLevel = document.querySelector('input[name="examDrawLevel"]:checked');
+    if (!drawLevel) drawLevel = document.querySelector('input[name="drawLevel"]:checked');
+    return drawLevel ? parseInt(drawLevel.value, 10) : 1;
+}
+
 function currentDrawValue() {
-    let drawLevel = document.querySelector('input[name="drawLevel"]:checked');
     let mode = document.getElementById('mode').value;
-    let level = drawLevel ? parseInt(drawLevel.value, 10) : 1;
+    let level = activeDrawLevelFromUi();
     return mode == 'play' ? 1 : level;
+}
+
+function ptrFromCellEvent(ev) {
+    return ev && typeof ev.clientX === 'number'
+        ? { clientX: ev.clientX, clientY: ev.clientY }
+        : typeof window.__cellautoLastPointer === 'object' && window.__cellautoLastPointer
+          ? window.__cellautoLastPointer
+          : null;
+}
+
+/** Vizsga gyakorlás: kiinduló minta tiltás — ugyanúgy a kattintás közelében, mint a „Nem GEN…” buborék. */
+function notifyFrozenPatternBlocked(ev) {
+    var msg = 'A kiinduló minta nem módosítható.';
+    var ptr = ptrFromCellEvent(ev);
+    if (
+        typeof window.CELLAUTO_isExamPracticeMode === 'function' &&
+        window.CELLAUTO_isExamPracticeMode() &&
+        typeof window.CELLAUTO_showPracticeCellHint === 'function'
+    ) {
+        window.CELLAUTO_showPracticeCellHint(ptr, msg);
+    } else if (typeof window.showToast === 'function') {
+        window.showToast(msg, 3400);
+    }
 }
 
 function handleCellMouseDown(ev, col, row) {
@@ -171,16 +199,38 @@ function handleCellMouseDown(ev, col, row) {
         if (ev) ev.preventDefault();
         return;
     }
+    var examBr0 = typeof window.CELLAUTO_examEditBlockedReason === 'function'
+        ? window.CELLAUTO_examEditBlockedReason(col, row)
+        : '';
+    if (examBr0 === 'frozen') {
+        notifyFrozenPatternBlocked(ev);
+        if (ev) ev.preventDefault();
+        return;
+    }
+    if (examBr0) {
+        if (ev) ev.preventDefault();
+        return;
+    }
     isPointerDown = true;
     const clickMode = document.getElementById('word_mode').value;
     if (clickMode !== 'select') {
-        toggleCell(col, row);
+        toggleCell(col, row, ev);
         return;
     }
     dragSelectActive = true;
     dragSelectValue = matrix[col][row] === 0 ? currentDrawValue() : 0;
+    var prevDrag = matrix[col][row];
     matrix[col][row] = dragSelectValue;
     reDrawTable();
+    if (typeof window.CELLAUTO_examAfterCellChange === 'function') {
+        var ptrDown =
+            ev && typeof ev.clientX === 'number'
+                ? { clientX: ev.clientX, clientY: ev.clientY }
+                : typeof window.__cellautoLastPointer === 'object' && window.__cellautoLastPointer
+                  ? window.__cellautoLastPointer
+                  : null;
+        window.CELLAUTO_examAfterCellChange(col, row, prevDrag, dragSelectValue, ptrDown);
+    }
     if (ev) ev.preventDefault();
 }
 
@@ -188,9 +238,21 @@ function handleCellMouseEnter(col, row) {
     if (!isPointerDown || !dragSelectActive) return;
     const clickMode = document.getElementById('word_mode').value;
     if (clickMode !== 'select') return;
+    var examBr1 = typeof window.CELLAUTO_examEditBlockedReason === 'function'
+        ? window.CELLAUTO_examEditBlockedReason(col, row)
+        : '';
+    if (examBr1) return;
     if (matrix[col][row] !== dragSelectValue) {
+        var prevEnter = matrix[col][row];
         matrix[col][row] = dragSelectValue;
         reDrawTable();
+        if (typeof window.CELLAUTO_examAfterCellChange === 'function') {
+            var ptrDrag =
+                typeof window.__cellautoLastPointer === 'object' && window.__cellautoLastPointer
+                    ? window.__cellautoLastPointer
+                    : null;
+            window.CELLAUTO_examAfterCellChange(col, row, prevEnter, dragSelectValue, ptrDrag);
+        }
     }
 }
 
@@ -275,22 +337,40 @@ function openWordQuickPicker(col, row) {
     }, 0);
 }
 
-function toggleCell(col, row) {
+function toggleCell(col, row, ev) {
+
+    var examBr = typeof window.CELLAUTO_examEditBlockedReason === 'function'
+        ? window.CELLAUTO_examEditBlockedReason(col, row)
+        : '';
+    if (examBr === 'frozen') {
+        notifyFrozenPatternBlocked(ev);
+        return;
+    }
+    if (examBr) return;
 
     const clickMode = document.getElementById('word_mode').value;
     if (clickMode === 'select') {
-        // let drawLevel = document.getElementById('drawLevel').value;
-        let drawLevel = document.querySelector('input[name="drawLevel"]:checked').value;
         let mode = document.getElementById('mode').value;
+        let drawLv = activeDrawLevelFromUi();
         let cell = document.getElementById(cellDomId(col, row));
+        const prev = matrix[col][row];
         if (matrix[col][row] === 0) {
-            matrix[col][row] = mode == 'play' ? 1 : drawLevel;
+            matrix[col][row] = mode == 'play' ? 1 : drawLv;
             // cell.classList.add('colorStart');
         } else {
             matrix[col][row] = 0;
             // cell.classList.remove('colorStart');
         }
         reDrawTable();
+        if (typeof window.CELLAUTO_examAfterCellChange === 'function') {
+            var ptrT =
+                ev && typeof ev.clientX === 'number'
+                    ? { clientX: ev.clientX, clientY: ev.clientY }
+                    : typeof window.__cellautoLastPointer === 'object' && window.__cellautoLastPointer
+                      ? window.__cellautoLastPointer
+                      : null;
+            window.CELLAUTO_examAfterCellChange(col, row, prev, matrix[col][row], ptrT);
+        }
     } else {
         if (matrix[col][row] > 0 && matrix[col][row] <= matrixWord.length) {
             if (isWordQuickPickEnabled()) {
@@ -346,13 +426,18 @@ function verify() {
     reDrawTable();
     method = document.getElementById("neighbors").value;
     maxLevel = document.getElementById("level").value;
-    for (let i = 0; i < maxRow; i++) {
-        for (let j = 0; j < maxCol; j++) {
-            if (matrix[i][j] == 1) {
-                matrixVerify[i][j] = 1;
-            } else {
-                matrixVerify[i][j] = 0;
-                matrixVerifyChecked[i][j] = 0;
+    // matrix[j][i] = oszlop, sor — mint reDrawTable / setLevel / vizsga diff (nem matrix[i][j])
+    for (let ii = 0; ii < maxRow; ii++) {
+        for (let jj = 0; jj < maxCol; jj++) {
+            matrixVerify[ii][jj] = 0;
+            matrixVerifyChecked[ii][jj] = 0;
+        }
+    }
+    for (let i = 0; i < viewRow; i++) {
+        const xMax = viewCol - ((board === 'hex' && (i % 2 !== 0)) ? 1 : 0);
+        for (let j = 0; j < xMax; j++) {
+            if (matrix[j][i] === 1) {
+                matrixVerify[j][i] = 1;
             }
         }
     }
@@ -957,6 +1042,9 @@ function wireNeighborsAndModeSelects() {
             document.getElementById('check').classList.remove('hidden');
             document.getElementById('level').value = maxLevel;
         }
+        if (typeof window.CELLAUTO_refreshExamGenPills === 'function') {
+            window.CELLAUTO_refreshExamGenPills();
+        }
     });
 }
 
@@ -1058,6 +1146,9 @@ function initGameBoard() {
     wirePlayModeToggle();
     wireGenerationControls();
     updateBoardScrollableExtent();
+    if (typeof window.CELLAUTO_refreshExamGenPills === 'function') {
+        window.CELLAUTO_refreshExamGenPills();
+    }
 }
 
 function applyBoardSize(size) {
@@ -1099,7 +1190,12 @@ function wireWordModeToggle() {
         });
     });
 
-    wm.addEventListener('change', syncWordModeToggleFromSelect);
+    wm.addEventListener('change', function () {
+        syncWordModeToggleFromSelect();
+        if (typeof window.CELLAUTO_refreshExamGenPills === 'function') {
+            window.CELLAUTO_refreshExamGenPills();
+        }
+    });
 }
 
 function updateBoardScrollableExtent() {
@@ -1155,6 +1251,14 @@ if (!window.__CELLAUTO_DEFER_INIT__) {
 // A scriptet elhelyezheted a HTML oldalad <head> részében vagy a <body> végén
 
 document.addEventListener('DOMContentLoaded', function () {
+    document.addEventListener(
+        'mousemove',
+        function (e) {
+            window.__cellautoLastPointer = { clientX: e.clientX, clientY: e.clientY };
+        },
+        { capture: true, passive: true }
+    );
+
     var tabla = document.getElementById('boardDiv'); // Azonosítjuk a formot
     var form = document.getElementById('drawLevel'); // Azonosítjuk a formot
 
@@ -1260,6 +1364,39 @@ function showToast(message, durationMs) {
     }, Number(durationMs) || 2600);
 }
 
+window.showToast = showToast;
+
+/** Vizsga: teljes megoldás mátrix (pillanatnyi táblaállapotból szimuláció); az eredeti `matrix` változatlan marad. */
+window.CELLAUTO_computeExpectedSolutionMatrix = function (generationsCount) {
+    var gc = parseInt(generationsCount, 10);
+    if (!Number.isFinite(gc) || gc < 1) return null;
+    var backup = [];
+    var x, y;
+    for (x = 0; x < maxCol; x++) backup[x] = matrix[x].slice();
+    var methodEl = document.getElementById('neighbors').value;
+    var prevMaxLevel = maxLevel;
+    maxLevel = gc;
+    try {
+        // setLevel → checkIfNewChildIsBorn a globális `method`-ot használja; anélkül üres maradna,
+        // és a referencia nem szimulálna (4–5. gen hiányzik, „rossz gen” minden új gyűrűn).
+        method = methodEl;
+        if (methodEl === 'life' || methodEl === 'life_hex') normalizeBinaryMatrix();
+        var guard = 0;
+        while (guard++ < 3000) {
+            if (getMatrixMaxValue() >= gc) break;
+            if (!advanceOneGeneration(methodEl, gc)) break;
+        }
+        var out = [];
+        for (x = 0; x < maxCol; x++) out[x] = matrix[x].slice();
+        return out;
+    } finally {
+        for (x = 0; x < maxCol; x++) {
+            for (y = 0; y < maxRow; y++) matrix[x][y] = backup[x][y];
+        }
+        maxLevel = prevMaxLevel;
+    }
+};
+
 function insertLineBreaks(inputString) {
     const length = inputString.length;
     let result = '';
@@ -1285,7 +1422,8 @@ window.CELLAUTO_buildSavePayload = function () {
     var cl = document.getElementById('colorListSelect');
     var bs = document.getElementById('boardSizeSelect');
     var bz = document.getElementById('boardZoomSelect');
-    var drawRadio = document.querySelector('input[name="drawLevel"]:checked');
+    var drawRadio = document.querySelector('input[name="examDrawLevel"]:checked')
+        || document.querySelector('input[name="drawLevel"]:checked');
     return {
         schemaVersion: 1,
         board: board === 'hex' ? 'hex' : 'square',
@@ -1341,8 +1479,25 @@ window.CELLAUTO_applySavePayload = function (payload, opts) {
         zoomSel.dispatchEvent(new Event('change', { bubbles: true }));
     }
     if (payload.drawLevel) {
-        var dr = document.querySelector('input[name="drawLevel"][value="' + payload.drawLevel + '"]');
+        var dr = document.querySelector('input[name="examDrawLevel"][value="' + payload.drawLevel + '"]');
+        if (!dr) dr = document.querySelector('input[name="drawLevel"][value="' + payload.drawLevel + '"]');
         if (dr) dr.checked = true;
+    }
+
+    if (opts.immediatePlacement) {
+        pendingLoadedPlacement = null;
+        clearPlacementPreview();
+        resetMartixValue();
+        var cellsImm = payload.cells || [];
+        for (var ii = 0; ii < cellsImm.length; ii++) {
+            var cc = cellsImm[ii];
+            if (!cc || typeof cc.x !== 'number' || typeof cc.y !== 'number') continue;
+            var vi = cc.v | 0;
+            if (!vi) continue;
+            if (isValidBoardCell(cc.x, cc.y, board)) matrix[cc.x][cc.y] = vi;
+        }
+        reDrawTable();
+        return true;
     }
 
     beginLoadedPlacement(payload, { overlay: false });
@@ -1353,6 +1508,188 @@ window.CELLAUTO_getBoardType = function () {
     return board === 'hex' ? 'hex' : 'square';
 };
 
+window.CELLAUTO_getViewBoardMeta = function () {
+    return { viewRow: viewRow, viewCol: viewCol, board: board };
+};
+
+/** Vizsga: nem üres kiinduló cellák pozíciói (col,row → true), szerkesztés tiltásához */
+window.CELLAUTO_getExamFrozenMaskFromMatrix = function () {
+    var mask = Object.create(null);
+    for (var i = 0; i < viewRow; i++) {
+        var xMax = viewCol - ((i % 2 !== 0) && (board === 'hex'));
+        for (var j = 0; j < xMax; j++) {
+            if ((matrix[j][i] | 0) !== 0) mask[j + ',' + i] = true;
+        }
+    }
+    return mask;
+};
+
+/** Vizsga API good_cell: csak kitöltendő (nem kiinduló/fagyott) cellák, ahol a rács == referencia generáció — ≤ kitöltendő cellák száma */
+window.CELLAUTO_countCorrectExamFillCells = function (ref, frozenCells) {
+    if (!ref) return 0;
+    var fc = frozenCells || {};
+    var n = 0;
+    for (var i = 0; i < viewRow; i++) {
+        var xMax = viewCol - ((i % 2 !== 0) && (board === 'hex'));
+        for (var j = 0; j < xMax; j++) {
+            var exp = ref[j] && ref[j][i] !== undefined ? ref[j][i] | 0 : 0;
+            if (exp <= 0) continue;
+            if (fc[j + ',' + i]) continue;
+            if ((matrix[j][i] | 0) === exp) n++;
+        }
+    }
+    return n;
+};
+
+/** Összehasonlítás a referencia mátrixszal — mint Verify (+ / m / x / egyező jelölés) */
+window.CELLAUTO_paintMatrixDiffOverlay = function (expectedMatrix) {
+    if (!expectedMatrix) return null;
+    var stats = { ok: 0, error: 0, plus: 0, minus: 0 };
+    reDrawTable();
+    for (var i = 0; i < viewRow; i++) {
+        var xMax = viewCol - ((i % 2 !== 0) && (board === 'hex'));
+        for (var j = 0; j < xMax; j++) {
+            var cell = document.getElementById(cellDomId(j, i));
+            if (!cell) continue;
+            removeVerifyColors(cell);
+            var act = matrix[j][i] | 0;
+            var exp = (expectedMatrix[j] && expectedMatrix[j][i] !== undefined) ? (expectedMatrix[j][i] | 0) : 0;
+            if (act === exp) {
+                if (exp !== 0) {
+                    cell.classList.add('ok');
+                    stats.ok++;
+                }
+            } else {
+                if (act !== 0 && exp === 0) {
+                    cell.classList.add('plus');
+                    stats.plus++;
+                } else if (act === 0 && exp !== 0) {
+                    cell.classList.add('minus');
+                    stats.minus++;
+                } else {
+                    cell.classList.add('error');
+                    stats.error++;
+                }
+            }
+        }
+    }
+    return stats;
+};
+
+/** Vizsga API: kiértékelés utáni tábla — cellaérték + Verify-jelölés (+/m/×/keret) + opcionális szöveg */
+window.CELLAUTO_captureEvaluationFieldBoards = function () {
+    var neighEl = document.getElementById('neighbors');
+    var cells = [];
+    var i;
+    var j;
+    var xMax;
+    for (i = 0; i < viewRow; i++) {
+        xMax = viewCol - ((board === 'hex' && (i % 2 !== 0)) ? 1 : 0);
+        for (j = 0; j < xMax; j++) {
+            var cell = document.getElementById(cellDomId(j, i));
+            var v = matrix[j][i] | 0;
+            var mark = '';
+            if (cell) {
+                if (cell.classList.contains('ok')) mark = 'ok';
+                else if (cell.classList.contains('error')) mark = 'error';
+                else if (cell.classList.contains('plus')) mark = 'plus';
+                else if (cell.classList.contains('minus')) mark = 'minus';
+            }
+            var entry = { x: j, y: i, v: v, mark: mark };
+            if (cell) {
+                var raw = (cell.innerText || '').replace(/\u00a0/g, ' ').trim();
+                if (raw) entry.text = raw;
+            }
+            cells.push(entry);
+        }
+    }
+    return {
+        schemaVersion: 1,
+        board: board === 'hex' ? 'hex' : 'square',
+        neighbors: neighEl ? neighEl.value : '',
+        viewRow: viewRow,
+        viewCol: viewCol,
+        cells: cells,
+    };
+};
+
 window.initGameBoard = initGameBoard;
 window.ensureMaxGenSelectOptions = ensureMaxGenSelectOptions;
 window.reDrawTable = reDrawTable;
+
+/** GEN gombok színe (Funkciók + vizsga panel) — nem exam-mode-ban: ott `if (!api) return` miatt hiányozhat a regisztráció */
+(function () {
+    var FALLBACK_PALETTE = ['#25ad4f', '#fcf400', '#ee1c25', '#00a4e6', '#b97b55', '#ffc70a'];
+
+    function hexToRgb(hex) {
+        if (!hex || typeof hex !== 'string') return null;
+        var h = hex.replace(/^#/, '');
+        if (h.length === 3) {
+            h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+        }
+        if (h.length !== 6) return null;
+        return {
+            r: parseInt(h.slice(0, 2), 16),
+            g: parseInt(h.slice(2, 4), 16),
+            b: parseInt(h.slice(4, 6), 16),
+        };
+    }
+
+    function pickLabelTextColor(bgHex) {
+        var rgb = hexToRgb(bgHex);
+        if (!rgb) return '#fff';
+        var y = (0.2126 * rgb.r + 0.7152 * rgb.g + 0.0722 * rgb.b) / 255;
+        return y > 0.62 ? '#111' : '#fff';
+    }
+
+    function applyPaletteToGenLabels(containerEl) {
+        if (!containerEl) return;
+        var pal =
+            Array.isArray(window.CELLAUTO_lastPaletteHex) && window.CELLAUTO_lastPaletteHex.length >= 6
+                ? window.CELLAUTO_lastPaletteHex
+                : FALLBACK_PALETTE;
+        containerEl.querySelectorAll('label.exam-gen-pill[data-gen]').forEach(function (lab) {
+            var g = parseInt(lab.getAttribute('data-gen') || '0', 10);
+            if (!g) return;
+            var slot = (g - 1) % 6;
+            var bg = pal[slot] || FALLBACK_PALETTE[slot];
+            var fg = pickLabelTextColor(bg);
+            lab.style.setProperty('background-color', bg, 'important');
+            lab.style.setProperty('color', fg, 'important');
+            lab.style.setProperty(
+                'text-shadow',
+                fg === '#111' ? 'none' : '0 1px 0 rgba(255,255,255,0.35)',
+                'important'
+            );
+        });
+    }
+
+    function clearSidebarDrawGenPalette(formEl, sectionEl) {
+        if (formEl) {
+            formEl.querySelectorAll('label.exam-gen-pill[data-gen]').forEach(function (lab) {
+                lab.style.removeProperty('background-color');
+                lab.style.removeProperty('color');
+                lab.style.removeProperty('text-shadow');
+            });
+        }
+        if (sectionEl) sectionEl.classList.remove('verify-section-draw--palette');
+    }
+
+    /** Test módban (Draw gen. látható): mindig generációs szín — nem csak Word módban, hogy egyezzen a vizsgapanel GEN sorával */
+    function refreshMainSidebarDrawGenPills() {
+        var form = document.getElementById('drawLevel');
+        var sec = document.getElementById('verifySectionDraw');
+        if (!form || !sec) return;
+        if (!sec.classList.contains('hidden')) {
+            applyPaletteToGenLabels(form);
+            sec.classList.add('verify-section-draw--palette');
+        } else {
+            clearSidebarDrawGenPalette(form, sec);
+        }
+    }
+
+    window.CELLAUTO_refreshExamGenPills = function () {
+        applyPaletteToGenLabels(document.getElementById('examDrawLevelRadios'));
+        refreshMainSidebarDrawGenPills();
+    };
+})();

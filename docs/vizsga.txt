@@ -1,17 +1,47 @@
 Legyen egy vizsga szekcio a Tabla mentese ala:
 Vizsga/Gyakorlas inditasa gombal
-Lehessen kivalasztani a lerrehozott taskok kozul, hogy meliket akarom megoldani
+
+Egy modal ablakba:
+Lehessen kivalasztani a lerrehozott taskok kozul, hogy melyiket akarom megoldani
+Legyen szuro is a lisa tetejen a levelre: alapbol MInden es utanna az ertekek
+
 ket gombal tudjak tovabb menni: Gyakorlas - Vizsga
 en dontom el, hogy milyen modba induljon
+
+
+
+
+Ilyenkor a bal oldalipanel ahol minden bealitas / vezerles van megvaltozik:
+De megmarad a Szinpaletta es a Meret es nagyitas resz
+
 a kivalasztott feladat toltodjon be, ha kell valtson hex re vagy negyzetracsosra es toltse be az elmentett taskot
 
-a sejthalo nm mindehol van kitoltve, vagyis lehet, hogy csak a kiindulo van megadva es en kell katoktassak 
-a kovtkeo generacios cellakra de lehet felig is kitoltve, attol fugg hogy volt elmentve
 
-Valahova ki kell irn a kepernyore a parametereket
-Generacios mod, Generaciok szama
-Osszesen hany jo cella letezik ami megadhato (ugye megvan adva, hogy hany gemneraciot kell kitolteni, elore mar ki van toltve 1 vagy nehany, azt kell megszamolni, hogy hany nincs kitoltve es az a totl good cell)
-A lehetseges mondatok szama:
+Alaja kiirodik:
+Vizsga / Gyakorlasi mod
+Meg kulombozo dolgok kiirodnak alabb:
+A Task neve amit kivalasztott - a task keszitoje - level
+Generacios mod
+Generaciok szama
+
+Lehetseges sejtek szama (ami ezutan kitoltendo)
+
+Good cell -ezek ertekeit majd a jatek kozbe modosulnak
+Bad cell -ezek ertekeit majd a jatek kozbe modosulnak
+
+Hatralevo ido: ami time-limit (majd ha indul a jatek ez automatikuson csokken)
+ez nagoobba kell kiirodjon
+
+a jatek lenuege az, hogy betoltodik a tabla kezdeti felalitasa es a user
+ki kell egeszitse a hatralevo generaciokat
+kell valasszon generaciot es az egerre lletegye a megfelelo helyre
+ha jo hejre tette a megfelelo generaciot akkor a Good cell novekszik hanem a bad cell
+lehetoseg kell legyen generaciot valasztani de felhasznalo barat modon,
+peldaul a teszt mode nel megjeleno generaciok is jok, megkell jelenjenek hgy lehessen valasztani
+
+Kell legyen egy gomb: Evaluation
+erre katintva vege a jateknak es alul megjelenik egy gpn:
+Alul kell legyen egy gomb amivel befelyezem a vizsga / gyakorlas mondatok
 
 
 
@@ -20,3 +50,107 @@ vegtelen ido van, az ido szamolodik de nem jar le sose, addig gyakorlok mig meg 
 ha katintok egy cellaba es rossz hejre katintok mert nincs ott nincs heje sejt generacioinak
 akkor hibauzenet toast ba, hogy: "Nem generacios cella"
 es a bad cell egyel no a kepernyon
+
+
+Elspokorben elkeszlt eddig de javitani kell:
+Tehat a feadatot elmagyarazom:
+erre van mar megoldas eddig is amikor a Test mode ba kitoltom a hianyzo cellakat
+es a veryfy vel ellenorzom
+
+Amikor betoltodik az elmentett task ne kelljen pozicioba lerakni hanem alapbol rakja le oda ahol volt mentve
+
+a feladat kivalasztasanal jell a task grup is mont szuro, lehet all is felul
+es a level es a tanar ki keszitette annak a neve is szerepeljen
+
+Modositas:
+
+Tehat amikor betoltodik az alap kiindulas azok a cellak nem modosithatoak!
+Ugye meg van adva a sejt generacionak egy kiindulo alapja!
+ezt kell folytatni, hogy kiegesziteni a kulombozo generaciokkal a felhasznalonak
+A felhasznalo valaszt GEN szintet es kattint az egerrel egy ures cellaba es oda kirajzolodik azzal a szinnel a generacio amilyen szinu a generacio
+itt nalad nem rajzolodik csak zoldel de a generacio szinevel kell azt rajzolni
+mikor kiertekelem akkor ki kell irodjon, hogy mi van a helyen es mi mincs mint a verrify, hogy csinalja
+
+Modositas:
+amikor katintok egy ures cellara azt olyan szinnel rajzolja mint amilyen generacio ki van valasztva!
+
+
+Modositas.
+tehat a jatekot elmagyarazom megegyszer, hogy megertsd.
+megvan, hogy hany generacios kell legyen a cellautomatta ugyebar
+megvan adva az osszes 1GEN cella es lehet megadva reszlegesen a tobbibol is
+ezt kell a felhasznalo kiegeszitse a teljes sejt szerkezettel es a pontok onnan gyulnek, hogy 
+jo generacios cellat jo helyre tette vagy nem
+amikor a legvegen a kiertekeles van akkot azzal kell osszehasonlitani a vegeredmenyt ami lenne a helyes sejtszapporodas, hogy jol raktae ki a felhasznalo
+
+
+Modositas:
+a bal panelbe a kiiras mikor betoltodik a task:
+Feladat: az jo
+Keszito: annak a felnaszanlonak a neve aki lertehozta a taskot
+MIkor: amikor keszult vagy utoljara modosult a task
+Generacios mos: az j0
+Gen szama: az is jo
+Kitoltendo cellak szama: szam kell amit meg a felhasznalo be kell rakson (mas semmi nem kell)
+
+Good cell: (ezek csak a gyakorlasnal kellenek)
+Bad cell: (ezek csak a gyakorlasnal kellenek)
+viszont ne tost uzenet legyen hanem kis ablak ami kiirja ott az eger mellt a tost uzenetet
+
+Vizsga modba viszont az idozito ugye visszafele megy, ha lejar az ido a kiertekeles gomb megyomodik
+ha vizsga modba van kell egy text input mezo az idozito ala, megjegyzes a vizsgarol felitattal
+ha vizsga volt az eredmenyeket el kell menteni a task_evaluation ba
+ha megjegyzes ki volt toltve azt is bele kell menteni a note  mezobe
+csak a vizsgat kell menteni, a gyakorlast nem, a note ba pedig csak a kitoltott megjegyzest kell beleirni
+
+
+Csak a gyakorlasnal kell megjelenjen:
+Good cell: (ezek csak a gyakorlasnal kellenek)
+Bad cell: (ezek csak a gyakorlasnal kellenek)
+
+Az uzenet amit kiir gyakorlasnal: Nem generacios cella...
+Ezt pontositom, hogy is legyen:
+Ha peldaul 2GEN el kattint egy olyan helyre ahol nem 2GEN cella kell legyen akkor az uzenet: nem GEN2 cella (altalanosan: nem GENn cella)
+
+
+modositottam az API t, bekerult egy mezo a task_evaluation ba a field_boards ami az akrualis (kiertekeleskor) a tabla allapotat mentse el ugy ahogy van, jelolesekkel, hol volt rossz, hol jo, szavakkal ha vannak benne
+
+MOdositas:
+Vizsga eseten a bad_cell be azok a cellaszamok kell keruljenek amik rosszak voltak a kiertekeleskor
+ezt most javitsuk mert bejott meg egy mezo a task_evaluationba: unfield_cell (ujapi hovas a api_task_saves.md be)
+ebbe kerulnek azon cellak szama amiket sejtkent be kellet volna jelolni de nem lettek jelolve
+a bad cell be pedig olyan bejelolt cellak amik nem ahoz a generacoiohoz tartoztak illetve oda kerultek ahova nem kelletek volna
+
+
+Modositas:
+HA az evaluation gomb megnyomodott vagy le jart az ido a gomb inaktivva kell valjon
+az osszegzes szovege:
+ha minden tokeletes akkor egy Gratulalok!!! szoveg is meg kell jelenjen
+a gratulalok szoveg kiemelten, hogy jol tkrozze a nyereseget
+alaja pedig a kiertekeles:
+
+Osszes teljesitheto cellak szama:
+Teljesitett cellak szama:
+
+Rosszul bejelolt cellak szama:
+Be nem jelolt cellak szama:
+
+Teljesites: x% (osszes teljesitheto cellak szama - teljesitett cellak szama aranya)
+
+a Good cell es a bad cell kiirst meg kell szuntetni
+
+Modositas:
+Összegzés
+Összes teljesíthető cellák száma: 40
+
+Teljesített cellák száma: 39
+
+Rosszul bejelölt cellák száma: 6
+
+Be nem jelölt cellák száma: 1
+
+Teljesítés: 98%
+
+Ezt kivenni: (nem kell kiirni) "Jelölések a táblán (mint Verify): + felesleges; m hiányzik; × rossz generáció; zöld keret: egyező nem üres cella."
+
+a kiiras legyen olyan stilusu mnt a vizsga mod nal

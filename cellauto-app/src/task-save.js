@@ -53,6 +53,13 @@
     return Number.isFinite(n) ? n : def;
   }
 
+  /** docs/api-task-saves.md — enum: Easy | Medium | Hard */
+  function normalizedTaskLevel(el) {
+    var v = el && el.value ? String(el.value) : 'Medium';
+    if (v === 'Easy' || v === 'Medium' || v === 'Hard') return v;
+    return 'Medium';
+  }
+
   function formatApiError(e) {
     if (!e || !e.data || typeof e.data !== 'object') return e && e.message ? e.message : 'Hiba';
     var d = e.data;
@@ -176,13 +183,7 @@
 
   function syncTaskDefaultsFromUi() {
     var gens = $('taskGenerationsCount');
-    if (gens) {
-      var lv = $('level');
-      var v = parseIntSafe(lv && lv.value, 5);
-      if (v < 2) v = 2;
-      if (v > 10) v = 10;
-      gens.value = String(v);
-    }
+    if (gens) gens.value = '5';
   }
 
   async function openTaskModal() {
@@ -218,6 +219,7 @@
 
     var generationMode = mapGenerationModeFromUi();
     var boardSize = parseIntSafe($('boardSizeSelect') && $('boardSizeSelect').value, 0);
+    var level = normalizedTaskLevel($('taskDifficultyLevel'));
     var generationsCount = parseIntSafe($('taskGenerationsCount') && $('taskGenerationsCount').value, 0);
     var wordListId = parseIntSafe($('taskWordListSelect') && $('taskWordListSelect').value, 0);
     var timeLimit = parseIntSafe($('taskTimeLimit') && $('taskTimeLimit').value, 0);
@@ -268,6 +270,7 @@
 
     var body = {
       name: name,
+      level: level,
       generation_mode: generationMode,
       board_size: boardSize,
       generations_count: generationsCount,
@@ -317,7 +320,10 @@
         refreshTaskOverwriteSelect(gid);
       });
     }
-    if (gensEl) gensEl.addEventListener('input', refreshTaskWordListSelect);
+    if (gensEl) {
+      gensEl.addEventListener('change', refreshTaskWordListSelect);
+      gensEl.addEventListener('input', refreshTaskWordListSelect);
+    }
     if (overwriteSel && nameInput) {
       overwriteSel.addEventListener('change', function () {
         if (!overwriteSel.value) {

@@ -19,45 +19,21 @@ Content-Type: application/json
 | **Csoport** | Felhasználói mappa (pl. „Gyakorlatok”, „ZH feladatok”). |
 | **Mentés** | Egy elnevezett pillanatkép a tábláról; mindig **egy csoporton belül** van. |
 
-## Adatmodell (javasolt táblák)
+## Adatmodell (Laravel migráció)
 
-### `board_save_groups`
+A táblák a repóban léteznek; részletes oszlopok és `SHOW CREATE TABLE` kimenetek: **`docs/database-schema.md`**.
 
-| Mező | Típus | Megjegyzés |
-|------|--------|------------|
-| `id` | bigint PK | |
-| `user_id` | FK users | |
-| `name` | string(255) | Csoport neve (pl. „2026 tavasz”). |
-| `position` | int, opcionális | Megjelenítési sorrend (0 = felül). |
-| `created_at`, `updated_at` | timestamp | |
+| Tábla | Migráció fájl |
+|--------|----------------|
+| `board_save_groups` | `database/migrations/2026_04_10_120000_create_board_save_groups_table.php` |
+| `board_saves` | `database/migrations/2026_04_10_120001_create_board_saves_table.php` |
 
-### `board_saves`
+**Rövid összefoglaló:**
 
-| Mező | Típus | Megjegyzés |
-|------|--------|------------|
-| `id` | bigint PK | |
-| `user_id` | FK users | Redundáns szűréshez; a csoport is userhez tartozik. |
-| `board_save_group_id` | FK board_save_groups | |
-| `name` | string(255) | Mentés megjelenített neve (pl. „Feladat 3a”). |
-| `payload` | JSON | Lásd **Payload séma** lent. |
-| `created_at`, `updated_at` | timestamp | |
+- `board_save_groups`: `user_id`, `name`, opcionális `position`, `timestamps`. FK: `user_id` → `users` **ON DELETE CASCADE**.
+- `board_saves`: `user_id`, `board_save_group_id`, `name`, `payload` (JSON), `timestamps`. **UNIQUE** `(board_save_group_id, name)`. FK-k: csoport és user törlésekor **CASCADE**.
 
-**Megkötések (javasolt):**
-
-- `(board_save_group_id, name)` **egyedi** ugyanazon a csoporton belül (ne lehessen két azonos nevű mentés egy csoportban).
-- Csoport törlésekor a mentések **CASCADE** törlődjenek (vagy soft delete – egyezzetek).
-
-### MySQL / MariaDB
-
-Igen, **MySQL**-re (és **MariaDB**-re) ez a séma megfelelő.
-
-| Megjegyzés | Ajánlás |
-|------------|---------|
-| `payload` | MySQL **5.7.8+** / MariaDB **10.2.7+**: `JSON` típus; Laravel `json()` migráció. Régebbi MySQL-nél alternatíva: `LONGTEXT` + alkalmazás szintű JSON validáció. |
-| Tábla motor | **InnoDB** (FK + tranzakció). |
-| Karakterkészlet | `utf8mb4` + `utf8mb4_unicode_ci` (név mezők, emojik). |
-| Egyediség | `UNIQUE (board_save_group_id, name)` index a `board_saves` táblán. |
-| FK | `board_save_group_id` → `board_save_groups.id` **ON DELETE CASCADE**. |
+**MySQL / MariaDB / SQLite:** a Laravel `json()` oszlop MySQL 5.7.8+ / MariaDB 10.2.7+ alatt natív `JSON`; fejlesztői SQLite-ban is támogatott. InnoDB + `utf8mb4` a production MySQL sémában (`database-schema.md`).
 
 ---
 
@@ -309,3 +285,4 @@ A pontos route nevek egyeztethetők; a fenti **URL-ek** a specifikáció szerint
 | Verzió | Dátum | Megjegyzés |
 |--------|--------|------------|
 | 1.0 | 2026-04-10 | Első spec: csoportok + mentések + payload séma v1 |
+| 1.1 | 2026-04-10 | Migrációk hozzáadva (`board_save_groups`, `board_saves`); séma dokumentálva `database-schema.md`-ben |

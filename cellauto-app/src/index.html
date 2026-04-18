@@ -29,13 +29,6 @@
           <label for="colorListSelect">Színpaletta</label>
           <select id="colorListSelect"></select>
         </div>
-        <div id="wordListPickerWrap" class="app-picker" hidden>
-          <label for="wordListSelect">Szólista</label>
-          <select id="wordListSelect"></select>
-          <div id="wordLevelWrap">
-          <form id="wordLevel"></form>
-          </div>
-        </div>
         <div class="app-picker">
           <label>Méret és nagyítás</label>
           <div class="size-zoom-row">
@@ -66,6 +59,14 @@
             </div>
           </div>
         </div>
+        <div id="wordListPickerWrap" class="app-picker" hidden>
+          <label for="wordListSelect">Szólista</label>
+          <select id="wordListSelect"></select>
+          <div id="wordLevelWrap">
+          <form id="wordLevel"></form>
+          </div>
+        </div>
+        <div id="sidebarPlayControls">
         <div class="app-picker mode-picker">
           <label>Mód</label>
           <div class="mode-toggle" id="wordModeToggle">
@@ -170,20 +171,59 @@
             <span>Draw gen.: </span>
             <form id="drawLevel">
               <input type="radio" id="level1" name="drawLevel" value="1" checked>
-              <label for="level1">Gen. 1.</label>
+              <label for="level1" class="exam-gen-pill" data-gen="1">Gen. 1.</label>
               <input type="radio" id="level2" name="drawLevel" value="2">
-              <label for="level2">Gen. 2.</label>
+              <label for="level2" class="exam-gen-pill" data-gen="2">Gen. 2.</label>
               <input type="radio" id="level3" name="drawLevel" value="3">
-              <label for="level3">Gen. 3.</label>
+              <label for="level3" class="exam-gen-pill" data-gen="3">Gen. 3.</label>
               <input type="radio" id="level4" name="drawLevel" value="4">
-              <label for="level4">Gen. 4.</label>
+              <label for="level4" class="exam-gen-pill" data-gen="4">Gen. 4.</label>
               <input type="radio" id="level5" name="drawLevel" value="5">
-              <label for="level5">Gen. 5.</label>
+              <label for="level5" class="exam-gen-pill" data-gen="5">Gen. 5.</label>
               <input type="radio" id="level6" name="drawLevel" value="6">
-              <label for="level6">Gen. 6.</label>
+              <label for="level6" class="exam-gen-pill" data-gen="6">Gen. 6.</label>
             </form>
           </div>
         </div>
+        </div>
+
+        <div id="sidebarExamPanel" class="app-exam-panel" hidden>
+          <h3 class="app-save-load__title" id="examSidebarTitle">Vizsga / Gyakorlás</h3>
+          <p id="examSidebarSubtitle" class="app-exam-panel__subtitle"></p>
+          <dl class="app-exam-meta" id="examMetaDl">
+            <dt>Feladat</dt><dd id="examMetaName">—</dd>
+            <dt>Készítő</dt><dd id="examMetaAuthor">—</dd>
+            <dt>Mikor</dt><dd id="examMetaWhen">—</dd>
+            <dt>Level</dt><dd id="examMetaLevel">—</dd>
+            <dt>Generációs mód</dt><dd id="examMetaGenMode">—</dd>
+            <dt>Gen száma</dt><dd id="examMetaGenCount">—</dd>
+            <dt>Kitöltendő cellák száma</dt><dd id="examMetaPossible">—</dd>
+          </dl>
+          <div class="exam-gen-picker" id="examGenPicker">
+            <span>Rajz generáció:</span>
+            <div id="examDrawLevelRadios" class="exam-draw-level-radios"></div>
+          </div>
+          <div class="exam-counters" id="examPracticeCounters">
+            <span>Good cell: <strong id="examGoodCell">0</strong></span>
+            <span>Bad cell: <strong id="examBadCell">0</strong></span>
+          </div>
+          <div id="examTimerSection">
+            <div id="examTimerCaption" class="exam-timer-caption"></div>
+            <div id="examTimerBig" class="exam-timer-big">—</div>
+          </div>
+          <div id="examNotesWrap" class="exam-notes-wrap" hidden>
+            <label for="examNoteInput">Megjegyzés a vizsgáról</label>
+            <textarea id="examNoteInput" class="exam-note-input" rows="3" maxlength="2000" placeholder="Megjegyzés a vizsgáról"></textarea>
+          </div>
+          <div class="exam-eval-actions">
+            <button type="button" id="examBtnEvaluate" class="button">Evaluation</button>
+          </div>
+          <div id="examEvaluationBox" class="exam-evaluation-box" hidden></div>
+          <div id="examFinishWrap" hidden>
+            <button type="button" id="examBtnFinish" class="button button--outline">Vizsga / gyakorlás befejezése</button>
+          </div>
+        </div>
+
         <div id="saveLoadWrap" class="app-save-load" hidden>
           <h3 class="app-save-load__title">Tábla mentés</h3>
           <div class="app-save-load__btns">
@@ -192,13 +232,22 @@
             <button type="button" id="btnOpenTaskSaveModal" class="button">Feladat mentés…</button>
           </div>
         </div>
+
+        <div id="vizsgaWrap" class="app-save-load app-vizsga-wrap" hidden>
+          <h3 class="app-save-load__title">Vizsga / gyakorlás</h3>
+          <div class="app-save-load__btns">
+            <button type="button" id="btnOpenExamModal" class="button">Vizsga / Gyakorlás indítása…</button>
+          </div>
+        </div>
       </aside>
 
       <main class="app-main">
         <div class="container">
           <div id="winMessage" style="display: none;">Gratulálok! Nyertél!</div>
           <div id="loserMessage" style="display: none;">Sajnálom! Vesztettél!</div>
+          <div class="board-stage" id="boardStage">
           <div id="boardDiv">
+          </div>
           </div>
         </div>
       </main>
@@ -267,6 +316,12 @@
         </select>
         <label for="taskSaveNameInput">Feladat neve</label>
         <input type="text" id="taskSaveNameInput" required maxlength="255" placeholder="pl. Feladat 1">
+        <label for="taskDifficultyLevel">Level</label>
+        <select id="taskDifficultyLevel">
+          <option value="Easy">Easy</option>
+          <option value="Medium" selected>Medium</option>
+          <option value="Hard">Hard</option>
+        </select>
         <label for="taskGenerationsCount">Generációk száma</label>
         <select id="taskGenerationsCount">
           <option value="2">2</option>
@@ -289,6 +344,35 @@
         <div class="login-modal__actions">
           <button type="button" id="taskSaveCancel">Mégse</button>
           <button type="button" id="taskSaveSubmit">Mentés</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="login-backdrop" id="examBackdrop" aria-hidden="true">
+    <div class="login-modal login-modal--wide" role="dialog" aria-labelledby="examModalTitle">
+      <h3 id="examModalTitle">Feladat kiválasztása</h3>
+      <div id="examModalForm">
+        <label for="examGroupFilter">Csoport szűrő</label>
+        <select id="examGroupFilter">
+          <option value="">Minden csoport</option>
+        </select>
+        <label for="examLevelFilter">Level szűrő</label>
+        <select id="examLevelFilter">
+          <option value="">Minden</option>
+          <option value="Easy">Easy</option>
+          <option value="Medium">Medium</option>
+          <option value="Hard">Hard</option>
+        </select>
+        <label for="examTaskSelect">Feladat</label>
+        <select id="examTaskSelect" size="8"></select>
+        <div class="login-modal__error" id="examModalError"></div>
+        <div class="login-modal__actions login-modal__actions--split">
+          <button type="button" id="examModalPractice">Gyakorlás</button>
+          <button type="button" id="examModalExam">Vizsga</button>
+        </div>
+        <div class="login-modal__actions">
+          <button type="button" id="examModalCancel">Mégse</button>
         </div>
       </div>
     </div>
@@ -319,6 +403,7 @@
   <script src="./app.js?v=5"></script>
   <script src="./board-save.js?v=5"></script>
   <script src="./task-save.js?v=1"></script>
+  <script src="./exam-mode.js?v=1"></script>
 </body>
 
 </html>
