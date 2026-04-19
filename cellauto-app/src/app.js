@@ -300,6 +300,9 @@
       sel._cellautoWired = true;
       sel.addEventListener('change', onWordListChange);
     }
+    if (typeof window.CELLAUTO_refreshExamMetaWordList === 'function') {
+      window.CELLAUTO_refreshExamMetaWordList();
+    }
   }
 
   async function onWordListChange() {

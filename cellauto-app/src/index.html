@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" href="./hex.css?v=5">
   <link rel="stylesheet" href="./style.css?v=5">
-  <link rel="stylesheet" href="./app.css?v=9">
+  <link rel="stylesheet" href="./app.css?v=14">
   <title>Borsos László (Sejt automatták)</title>
   <script src="./config.js?v=5"></script>
 </head>
@@ -60,7 +60,11 @@
           </div>
         </div>
         <div id="wordListPickerWrap" class="app-picker" hidden>
-          <label for="wordListSelect">Szólista</label>
+          <div id="examTaskWordListReadonly" class="exam-task-wordlist-readonly" hidden>
+            <span class="exam-task-wordlist-readonly__label">Szólista (feladat):</span>
+            <span id="examTaskWordListName" class="exam-task-wordlist-readonly__name">—</span>
+          </div>
+          <label for="wordListSelect" id="wordListSelectLabel">Szólista</label>
           <select id="wordListSelect"></select>
           <div id="wordLevelWrap">
           <form id="wordLevel"></form>
@@ -197,6 +201,7 @@
             <dt>Level</dt><dd id="examMetaLevel">—</dd>
             <dt>Generációs mód</dt><dd id="examMetaGenMode">—</dd>
             <dt>Gen száma</dt><dd id="examMetaGenCount">—</dd>
+            <dt>Szólista</dt><dd id="examMetaWordList">—</dd>
             <dt>Kitöltendő cellák száma</dt><dd id="examMetaPossible">—</dd>
           </dl>
           <div id="examStartWrap" class="exam-start-wrap" hidden>
@@ -206,6 +211,11 @@
             <span>Rajz generáció:</span>
             <div id="examDrawLevelRadios" class="exam-draw-level-radios"></div>
           </div>
+          <div id="examWordSentenceGate" class="exam-word-sentence-gate" hidden>
+            <p id="examWordSentenceGateMsg" class="exam-word-sentence-gate__msg" role="status"></p>
+            <button type="button" id="examBtnWordSentences" class="button exam-btn-word-sentences" hidden>Szolistából mondatok</button>
+          </div>
+          <div id="examWordPickerSlot" class="exam-word-picker-slot" hidden></div>
           <div class="exam-counters" id="examPracticeCounters">
             <span>Good cell: <strong id="examGoodCell">0</strong></span>
             <span>Bad cell: <strong id="examBadCell">0</strong></span>
@@ -225,6 +235,9 @@
           </div>
           <div id="examFinishWrap" hidden>
             <button type="button" id="examBtnFinish" class="button button--outline">Vizsga / gyakorlás befejezése</button>
+          </div>
+          <div id="examExitBackWrap" class="exam-exit-back-wrap" hidden>
+            <button type="button" id="examBtnExitBack" class="button button--outline exam-btn-exit-back">Kilépés</button>
           </div>
         </div>
 
@@ -354,29 +367,37 @@
   </div>
 
   <div class="login-backdrop" id="examBackdrop" aria-hidden="true">
-    <div class="login-modal login-modal--wide" role="dialog" aria-labelledby="examModalTitle">
+    <div class="login-modal login-modal--wide exam-task-modal" role="dialog" aria-labelledby="examModalTitle">
       <h3 id="examModalTitle">Feladat kiválasztása</h3>
-      <div id="examModalForm">
-        <label for="examGroupFilter">Csoport szűrő</label>
-        <select id="examGroupFilter">
-          <option value="">Minden csoport</option>
-        </select>
-        <label for="examLevelFilter">Level szűrő</label>
-        <select id="examLevelFilter">
-          <option value="">Minden</option>
-          <option value="Easy">Easy</option>
-          <option value="Medium">Medium</option>
-          <option value="Hard">Hard</option>
-        </select>
-        <label for="examTaskSelect">Feladat</label>
-        <select id="examTaskSelect" size="8"></select>
-        <div class="login-modal__error" id="examModalError"></div>
-        <div class="login-modal__actions login-modal__actions--split">
-          <button type="button" id="examModalPractice">Gyakorlás</button>
-          <button type="button" id="examModalExam">Vizsga</button>
+      <div id="examModalForm" class="exam-task-modal__form">
+        <div class="exam-task-modal__filters">
+          <div class="exam-task-modal__field">
+            <label for="examGroupFilter">Csoport</label>
+            <select id="examGroupFilter">
+              <option value="">Minden csoport</option>
+            </select>
+          </div>
+          <div class="exam-task-modal__field">
+            <label for="examLevelFilter">Level</label>
+            <select id="examLevelFilter">
+              <option value="">Minden</option>
+              <option value="Easy">Easy</option>
+              <option value="Medium">Medium</option>
+              <option value="Hard">Hard</option>
+            </select>
+          </div>
         </div>
-        <div class="login-modal__actions">
-          <button type="button" id="examModalCancel">Mégse</button>
+        <div class="exam-task-modal__field exam-task-modal__field--list">
+          <label for="examTaskSelect">Feladat lista</label>
+          <select id="examTaskSelect" size="8"></select>
+        </div>
+        <div class="login-modal__error" id="examModalError"></div>
+        <div class="exam-task-modal__footer">
+          <div class="exam-task-modal__primary-actions">
+            <button type="button" id="examModalPractice" class="exam-task-modal__btn exam-task-modal__btn--practice">Gyakorlás</button>
+            <button type="button" id="examModalExam" class="exam-task-modal__btn exam-task-modal__btn--exam">Vizsga</button>
+          </div>
+          <button type="button" id="examModalCancel" class="exam-task-modal__btn exam-task-modal__btn--cancel">Mégse</button>
         </div>
       </div>
     </div>
@@ -403,11 +424,11 @@
     window.__CELLAUTO_DEFER_INIT__ = true;
   </script>
   <script src="./api.js?v=6"></script>
-  <script src="./script.js?v=6"></script>
-  <script src="./app.js?v=5"></script>
+  <script src="./script.js?v=9"></script>
+  <script src="./app.js?v=6"></script>
   <script src="./board-save.js?v=5"></script>
   <script src="./task-save.js?v=1"></script>
-  <script src="./exam-mode.js?v=5"></script>
+  <script src="./exam-mode.js?v=14"></script>
 </body>
 
 </html>

@@ -162,6 +162,14 @@
     examSessionStarted: false,
     savedEvaluationId: null,
     savedEvaluationApiPayload: null,
+    taskWordListId: 0,
+    examWordSentencePhase: false,
+    examIdleNothingToComplete: false,
+    wordListPickerRestoreParent: null,
+    wordListPickerRestoreNext: null,
+    taskWordListName: '',
+    examAutoWordTriggered: false,
+    examAutoNoWordlistEvalTriggered: false,
   };
 
   window.CELLAUTO_examEditBlockedReason = function (col, row) {
@@ -170,6 +178,16 @@
     if (state.mode === 'exam' && !state.examSessionStarted) return 'not_started';
     if (!state.frozenCells) return '';
     return state.frozenCells[col + ',' + row] ? 'frozen' : '';
+  };
+
+  /** Szómondatos fázisban a kiinduló cellákra is lehet szót írni (vizsga). */
+  window.CELLAUTO_examAllowFrozenWordFill = function () {
+    return !!(state.active && state.examWordSentencePhase);
+  };
+
+  /** Vizsga szófázis: mindig a gyors helyi szóválasztó (mint a Gyors szóválasztó). */
+  window.CELLAUTO_examUseWordQuickPicker = function () {
+    return !!(state.active && state.examWordSentencePhase);
   };
 
   /** Összes nem üres cella a helyes végső állapotban (referencia mátrix). */
@@ -361,6 +379,19 @@
     return !!state.active && state.mode === 'practice';
   };
 
+  /**
+   * Gratuláló overlay ankor: négyzethez <table>, hexhez a méz konténere (`.hexagon-wrapper__hexagon-container`),
+   * hogy a középre igazítás a valódi rács téglalapjára essen.
+   */
+  function resolveExamCelebrationAnchorEl(bd) {
+    if (!bd) return null;
+    var hexHoney = bd.querySelector('.hexagon-wrapper__hexagon-container');
+    if (hexHoney) return hexHoney;
+    var tbl = bd.querySelector('table');
+    if (tbl) return tbl;
+    return bd.firstElementChild || null;
+  }
+
   /** Látható rács téglalapja a nézetablakban (#boardDiv zoom miatt gyakran nagyobb a layout doboz). */
   function syncPerfectOverlayToGrid(gridEl, overlay) {
     if (!gridEl || !overlay || !overlay.parentNode) return;
@@ -381,7 +412,7 @@
   function showPerfectBoardCelebration() {
     var bd = $('boardDiv');
     if (!bd) return;
-    var grid = bd.querySelector('table') || bd.firstElementChild;
+    var grid = resolveExamCelebrationAnchorEl(bd);
     if (!grid) return;
     removePerfectBoardCelebration();
     var overlay = document.createElement('div');
@@ -416,6 +447,11 @@
       scrollRoots.push(mainEl);
       mainEl.addEventListener('scroll', onScrollOrResize, scrollOpts);
     }
+    var boardStage = document.querySelector('.board-stage');
+    if (boardStage) {
+      scrollRoots.push(boardStage);
+      boardStage.addEventListener('scroll', onScrollOrResize, scrollOpts);
+    }
     function cleanup() {
       overlay.removeEventListener('animationend', onAnimEnd);
       if (typeof overlay._examPerfectCleanup === 'function') overlay._examPerfectCleanup();
@@ -439,6 +475,21 @@
     });
   }
 
+  /** Vizsgán a Kilépés csak indulás előtt; gyakorlásnál kiértékelésig látszik; kiértékelés után a befejezés gomb marad. */
+  function updateExamExitBackButtonVisibility() {
+    var wrap = $('examExitBackWrap');
+    if (!wrap) return;
+    if (!state.active || state.evaluationDone) {
+      wrap.hidden = true;
+      return;
+    }
+    if (state.mode === 'practice') {
+      wrap.hidden = false;
+      return;
+    }
+    wrap.hidden = !!(state.mode === 'exam' && state.examSessionStarted);
+  }
+
   function beginExamSession() {
     if (!state.active || state.mode !== 'exam' || state.examSessionStarted) return;
     state.examSessionStarted = true;
@@ -453,6 +504,8 @@
     }
     startTimers();
     if (typeof window.reDrawTable === 'function') window.reDrawTable();
+    updateExamWordSentenceGate();
+    updateExamExitBackButtonVisibility();
   }
 
   function syncExamNoteSaveBtnVisibility() {
@@ -545,6 +598,36 @@
     return parts.join(' ');
   }
 
+  function setExamMetaWordListFromTask(task) {
+    var wlDd = $('examMetaWordList');
+    if (!wlDd) return;
+    var t = task || state.taskRow;
+    var wlName = String(
+      (state.taskWordListName && String(state.taskWordListName).trim()) ||
+        (t && (t.word_list_name || t.wordListName || (t.word_list && t.word_list.name))) ||
+        ''
+    ).trim();
+    var wlId = state.taskWordListId | 0;
+    if (!wlName && wlId) {
+      var sel = $('wordListSelect');
+      if (sel) {
+        var opt = sel.querySelector('option[value="' + String(wlId) + '"]');
+        if (opt) {
+          var fromOpt = String(opt.textContent || '').replace(/\s+/g, ' ').trim();
+          if (fromOpt) wlName = fromOpt;
+        }
+      }
+    }
+    if (wlName) wlDd.textContent = wlName;
+    else if (wlId) wlDd.textContent = 'Lista #' + wlId;
+    else wlDd.textContent = '—';
+  }
+
+  window.CELLAUTO_refreshExamMetaWordList = function () {
+    if (!state.active) return;
+    setExamMetaWordListFromTask(state.taskRow);
+  };
+
   function fillMeta(task, gc) {
     $('examMetaName').textContent = task.name || 'Feladat #' + task.id;
     $('examMetaAuthor').textContent = examAuthorName(task);
@@ -553,6 +636,7 @@
     $('examMetaLevel').textContent = task.level || '—';
     $('examMetaGenMode').textContent = neighborLabel($('neighbors') && $('neighbors').value);
     $('examMetaGenCount').textContent = String(gc);
+    setExamMetaWordListFromTask(task);
     $('examMetaPossible').textContent = String(state.possible);
     $('examSidebarSubtitle').textContent =
       state.mode === 'practice' ? 'Gyakorlási mód' : 'Vizsga mód';
@@ -583,12 +667,17 @@
         }
       }
       updateStatsDom();
+      updateExamWordSentenceGate();
       return;
     }
 
-    if ((newV | 0) <= 0) return;
+    if ((newV | 0) <= 0) {
+      updateExamWordSentenceGate();
+      return;
+    }
     if (!practice) {
       updateStatsDom();
+      updateExamWordSentenceGate();
       return;
     }
 
@@ -601,10 +690,12 @@
       showPracticeCellHint(p, 'Nem GEN' + (newV | 0) + ' cella');
       state.bad++;
       updateStatsDom();
+      updateExamWordSentenceGate();
       return;
     }
     if (!fillable) {
       updateStatsDom();
+      updateExamWordSentenceGate();
       return;
     }
     if ((newV | 0) === expected) {
@@ -619,6 +710,7 @@
       showPracticeCellHint(p2, 'Nem GEN' + (newV | 0) + ' cella');
     }
     updateStatsDom();
+    updateExamWordSentenceGate();
   };
 
   function collectFilteredTasks() {
@@ -719,6 +811,277 @@
     return { groupId: gid, task: task };
   }
 
+  function restoreWordListPickerPlacement() {
+    var w = $('wordListPickerWrap');
+    if (!w || !state.wordListPickerRestoreParent) return;
+    var parent = state.wordListPickerRestoreParent;
+    var next = state.wordListPickerRestoreNext;
+    try {
+      if (next && next.parentNode === parent) parent.insertBefore(w, next);
+      else parent.appendChild(w);
+    } catch (e) {}
+    state.wordListPickerRestoreParent = null;
+    state.wordListPickerRestoreNext = null;
+  }
+
+  function releaseExamWordListLockedUi() {
+    var ro = $('examTaskWordListReadonly');
+    var lab = $('wordListSelectLabel');
+    var sel = $('wordListSelect');
+    if (ro) ro.hidden = true;
+    if (lab) lab.hidden = false;
+    if (sel) {
+      sel.hidden = false;
+      sel.removeAttribute('aria-hidden');
+      sel.disabled = false;
+    }
+  }
+
+  function resolveTaskWordListDisplayName() {
+    var raw = state.taskWordListName ? String(state.taskWordListName).trim() : '';
+    if (raw) return raw;
+    var wlSel = $('wordListSelect');
+    if (wlSel && wlSel.selectedIndex >= 0 && wlSel.options[wlSel.selectedIndex]) {
+      var t = String(wlSel.options[wlSel.selectedIndex].textContent || '').trim();
+      if (t) return t;
+    }
+    var id = state.taskWordListId | 0;
+    return id ? 'Lista #' + id : '—';
+  }
+
+  function applyExamWordListLockedUi() {
+    var ro = $('examTaskWordListReadonly');
+    var nm = $('examTaskWordListName');
+    var lab = $('wordListSelectLabel');
+    var sel = $('wordListSelect');
+    if (nm) nm.textContent = resolveTaskWordListDisplayName();
+    if (ro) ro.hidden = false;
+    if (lab) lab.hidden = true;
+    if (sel) {
+      sel.hidden = true;
+      sel.setAttribute('aria-hidden', 'true');
+      sel.disabled = true;
+    }
+  }
+
+  function showExamCellToWordAnimation(done) {
+    var overlay = document.createElement('div');
+    overlay.className = 'exam-word-phase-overlay';
+    overlay.setAttribute('role', 'status');
+    overlay.innerHTML =
+      '<div class="exam-word-phase-overlay__card">' +
+      '<div class="exam-word-phase-overlay__title">Teljesítetted a cella módot</div>' +
+      '<div class="exam-word-phase-overlay__sub">Következik a szó mód…</div>' +
+      '</div>';
+    document.body.appendChild(overlay);
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () {
+        overlay.classList.add('exam-word-phase-overlay--visible');
+      });
+    });
+    var dismissMs = 1850;
+    setTimeout(function () {
+      overlay.classList.add('exam-word-phase-overlay--exit');
+      setTimeout(function () {
+        if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+        if (typeof done === 'function') done();
+      }, 360);
+    }, dismissMs);
+  }
+
+  /** Vizsga + gyakorlás: teljes rács + szólista után animáció, majd szó mód (gomb nélkül). Vizsgán csak Session indítása után. */
+  /** Szólista nélkül + teljes rács: egyetlen automatikus kiértékelés (vizsgán csak elindítás után). */
+  function scheduleAutoEvaluateNoWordlist() {
+    if (!state.active || state.evaluationDone) return;
+    if (state.taskWordListId | 0) return;
+    if (typeof window.CELLAUTO_matrixMatchesExamRef !== 'function' || !window.CELLAUTO_matrixMatchesExamRef(state.refMatrix)) return;
+    if (state.mode === 'exam' && !state.examSessionStarted) return;
+    if (state.examAutoNoWordlistEvalTriggered) return;
+    state.examAutoNoWordlistEvalTriggered = true;
+    setTimeout(function () {
+      if (!state.active || state.evaluationDone) return;
+      if (state.taskWordListId | 0) return;
+      if (typeof window.CELLAUTO_matrixMatchesExamRef === 'function' && !window.CELLAUTO_matrixMatchesExamRef(state.refMatrix)) return;
+      onEvaluate();
+    }, 400);
+  }
+
+  function scheduleAutoWordTransition() {
+    if (state.examWordSentencePhase || state.evaluationDone) return;
+    if (state.examAutoWordTriggered) return;
+    if (!(state.taskWordListId | 0)) return;
+    if (typeof window.CELLAUTO_matrixMatchesExamRef !== 'function' || !window.CELLAUTO_matrixMatchesExamRef(state.refMatrix)) return;
+    if (state.mode === 'exam' && !state.examSessionStarted) return;
+    state.examAutoWordTriggered = true;
+    var gate = $('examWordSentenceGate');
+    if (gate) gate.hidden = true;
+    showExamCellToWordAnimation(function () {
+      activateWordSentenceMode();
+    });
+  }
+
+  function restoreExamSentenceUiHard() {
+    releaseExamWordListLockedUi();
+    restoreWordListPickerPlacement();
+    state.examWordSentencePhase = false;
+    state.examIdleNothingToComplete = false;
+    state.examAutoWordTriggered = false;
+    state.examAutoNoWordlistEvalTriggered = false;
+    var slot = $('examWordPickerSlot');
+    var gen = $('examGenPicker');
+    var gate = $('examWordSentenceGate');
+    if (slot) slot.hidden = true;
+    if (gen) gen.hidden = false;
+    if (gate) gate.hidden = true;
+  }
+
+  function updateExamWordSentenceGate() {
+    var gate = $('examWordSentenceGate');
+    var msg = $('examWordSentenceGateMsg');
+    var btn = $('examBtnWordSentences');
+    var genPick = $('examGenPicker');
+    var fw = $('examFinishWrap');
+    var startW = $('examStartWrap');
+    var startBtn = $('examBtnStart');
+    var evB = $('examBtnEvaluate');
+    if (!gate || !msg || !btn) return;
+
+    if (!state.active || state.evaluationDone) {
+      gate.hidden = true;
+      return;
+    }
+    if (state.examWordSentencePhase) {
+      gate.hidden = true;
+      return;
+    }
+
+    var ref = state.refMatrix;
+    var full =
+      typeof window.CELLAUTO_matrixMatchesExamRef === 'function' &&
+      window.CELLAUTO_matrixMatchesExamRef(ref);
+    var wlid = state.taskWordListId | 0;
+
+    if (full && !wlid) {
+      state.examIdleNothingToComplete = true;
+      gate.hidden = false;
+      btn.hidden = true;
+      if (genPick) genPick.hidden = true;
+
+      var canEval = state.mode !== 'exam' || state.examSessionStarted;
+      if (state.mode === 'exam' && !state.examSessionStarted) {
+        msg.textContent =
+          'Nincs szólista — a rács már teljes. Indítsd el a vizsgát; utána automatikusan lefut az értékelés (vagy használd az Evaluation gombot).';
+        if (startW) startW.hidden = false;
+        if (startBtn) startBtn.hidden = false;
+        if (evB) {
+          evB.disabled = true;
+          evB.setAttribute('aria-disabled', 'true');
+        }
+      } else {
+        gate.hidden = true;
+        if (msg) msg.textContent = '';
+        if (startW) startW.hidden = true;
+        if (startBtn) startBtn.hidden = true;
+        if (evB) {
+          evB.disabled = false;
+          evB.removeAttribute('aria-disabled');
+        }
+        scheduleAutoEvaluateNoWordlist();
+      }
+
+      if (fw) fw.hidden = false;
+      return;
+    }
+
+    state.examIdleNothingToComplete = false;
+
+    if (full && wlid) {
+      btn.hidden = true;
+      if (state.mode === 'exam' && !state.examSessionStarted) {
+        gate.hidden = false;
+        msg.textContent =
+          'Indítsd el a vizsgát — ezután automatikusan indul a szólistás rész.';
+        if (genPick) genPick.hidden = false;
+        if (fw) fw.hidden = true;
+        return;
+      }
+      gate.hidden = true;
+      msg.textContent = '';
+      if (genPick) genPick.hidden = false;
+      if (fw) fw.hidden = true;
+      scheduleAutoWordTransition();
+      return;
+    }
+
+    gate.hidden = true;
+  }
+
+  window.CELLAUTO_updateExamWordSentenceGate = updateExamWordSentenceGate;
+
+  function activateWordSentenceMode() {
+    if (!state.active || state.evaluationDone) return;
+    if (state.mode === 'exam' && !state.examSessionStarted) {
+      if (typeof window.showToast === 'function') window.showToast('Előbb indítsd el a vizsgát.', 3800);
+      return;
+    }
+    var w = $('wordListPickerWrap');
+    var slot = $('examWordPickerSlot');
+    var genPick = $('examGenPicker');
+    var gate = $('examWordSentenceGate');
+    if (!w || !slot) return;
+
+    state.examWordSentencePhase = true;
+    if (!state.wordListPickerRestoreParent) {
+      state.wordListPickerRestoreParent = w.parentNode;
+      state.wordListPickerRestoreNext = w.nextSibling;
+    }
+    slot.appendChild(w);
+    w.hidden = false;
+    slot.hidden = false;
+    if (genPick) genPick.hidden = true;
+    if (gate) gate.hidden = true;
+
+    var wlSel = $('wordListSelect');
+    if (wlSel && state.taskWordListId) {
+      var vs = String(state.taskWordListId);
+      if (wlSel.querySelector('option[value="' + vs + '"]')) {
+        wlSel.value = vs;
+        wlSel.dispatchEvent(new Event('change', { bubbles: true }));
+      } else if (typeof window.showToast === 'function') {
+        window.showToast('A feladathoz rendelt szólista nem szerepel a legördülőben.', 5200);
+      }
+    }
+
+    var wm = $('word_mode');
+    if (wm) {
+      wm.value = 'word';
+      wm.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+    var wr = $('wordModeWord');
+    var wms = $('wordModeSelect');
+    if (wr) wr.checked = true;
+    if (wms) wms.checked = false;
+
+    var tries = 0;
+    function finishWordSentenceActivation() {
+      applyExamWordListLockedUi();
+      if (typeof window.reDrawTable === 'function') window.reDrawTable();
+    }
+    function waitForWordLevels() {
+      var lev1 = document.getElementById('lev1');
+      if (lev1 && lev1.options && lev1.options.length) {
+        finishWordSentenceActivation();
+        return;
+      }
+      if (tries++ >= 80) {
+        finishWordSentenceActivation();
+        return;
+      }
+      setTimeout(waitForWordLevels, 25);
+    }
+    waitForWordLevels();
+  }
+
   async function enterExam(mode) {
     var err = $('examModalError');
     if (err) err.textContent = '';
@@ -742,6 +1105,8 @@
 
     var task = parsed.task;
     var gc = parseIntSafe(task.generations_count || task.generationsCount, 5);
+
+    restoreExamSentenceUiHard();
 
     applyTaskRecord(task);
 
@@ -785,6 +1150,12 @@
     state.possible = countFillableCells(ref, state.frozenCells);
     state.totalSolutionCells = countNonZeroInRef(ref);
     state.timeLimit = parseIntSafe(task.time_limit || task.timeLimit, 120);
+    state.taskWordListId = parseIntSafe(task.word_list_id || task.wordListId, 0);
+    state.taskWordListName = String(
+      task.word_list_name || task.wordListName || (task.word_list && task.word_list.name) || ''
+    ).trim();
+    state.examAutoWordTriggered = false;
+    state.examAutoNoWordlistEvalTriggered = false;
 
     fillMeta(task, gc);
     updateStatsDom();
@@ -854,6 +1225,8 @@
     }
 
     if (typeof window.reDrawTable === 'function') window.reDrawTable();
+    updateExamWordSentenceGate();
+    updateExamExitBackButtonVisibility();
   }
 
   function completedSecondsForApi() {
@@ -865,6 +1238,7 @@
     if (!state.active || state.evaluationDone) return;
     if (state.mode === 'exam' && !state.examSessionStarted) return;
     state.evaluationDone = true;
+    updateExamExitBackButtonVisibility();
     clearTimer();
 
     var noteEl = $('examNoteInput');
@@ -1057,6 +1431,7 @@
 
   function exitExamMode() {
     removePerfectBoardCelebration();
+    restoreExamSentenceUiHard();
     clearTimer();
     state.active = false;
     state.refMatrix = null;
@@ -1159,6 +1534,12 @@
     if (finBtn) finBtn.addEventListener('click', exitExamMode);
     if (startExamBtn) startExamBtn.addEventListener('click', beginExamSession);
     if (noteSaveBtn) noteSaveBtn.addEventListener('click', onSaveExamNoteClick);
+
+    var wsBtn = $('examBtnWordSentences');
+    if (wsBtn) wsBtn.addEventListener('click', activateWordSentenceMode);
+
+    var exitBackBtn = $('examBtnExitBack');
+    if (exitBackBtn) exitBackBtn.addEventListener('click', exitExamMode);
   }
 
   document.addEventListener('DOMContentLoaded', wire);

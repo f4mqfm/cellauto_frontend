@@ -1,0 +1,13 @@
+Modozitas:
+amikor word modba kerul az egerkattintas a cellakra ugy kell vislkedjen mit a foprograma a Word mode
+gyors valaszto helyi menu mintha belenne kapcsolva
+es szavak kell keruljenek a cellakba a megfelelo generaciokra kattintva
+
+Modositas:
+A szolistaba van relacios tabla!
+Ha gyakolrlo modba vagyok:
+ILyenkor muszaly az 1 GEN tol induljak es haladjak a szomszedossagi mezokon kifele a szovak kijelolesevel
+ha peldaul kiindulok a gen1 el es kivalasztok egy szot es melleje katintok, ugy hogy szoszedos legyen a sejtszaporodasnak megfeleloen
+a kobetjkezo cella, akkor a felugro szolistaba azok a szavak amik relacioba kovetkeznek az elozo gen tol
+azok kiemelten jelenjenek meg, hogy felajalja melyik szo kozvetkezene a relacio szerint
+

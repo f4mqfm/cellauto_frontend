@@ -179,6 +179,16 @@ function ptrFromCellEvent(ev) {
           : null;
 }
 
+/** Ha true, a fagyott (kiinduló) cella tiltását érvényesítjük (toast); ha false, a kattintás folytatódik (pl. szó mód). */
+function shouldShowExamFrozenBlockToast(ev) {
+    var wm = document.getElementById('word_mode');
+    if (wm && wm.value === 'word' && typeof window.CELLAUTO_examAllowFrozenWordFill === 'function' && window.CELLAUTO_examAllowFrozenWordFill()) {
+        return false;
+    }
+    notifyFrozenPatternBlocked(ev);
+    return true;
+}
+
 /** Vizsga: kiinduló minta tiltás — az egér melletti buborék (lentről animálva), nem sarok-toast. */
 function notifyFrozenPatternBlocked(ev) {
     var msg = 'A kiinduló minta nem módosítható.';
@@ -199,19 +209,18 @@ function handleCellMouseDown(ev, col, row) {
         ? window.CELLAUTO_examEditBlockedReason(col, row)
         : '';
     if (examBr0 === 'frozen') {
-        notifyFrozenPatternBlocked(ev);
-        if (ev) ev.preventDefault();
-        return;
-    }
-    if (examBr0 === 'not_started') {
+        if (shouldShowExamFrozenBlockToast(ev)) {
+            if (ev) ev.preventDefault();
+            return;
+        }
+    } else if (examBr0 === 'not_started') {
         if (ev) ev.preventDefault();
         var ptrNs = ptrFromCellEvent(ev);
         if (typeof window.CELLAUTO_notifyExamNotStartedCellClick === 'function') {
             window.CELLAUTO_notifyExamNotStartedCellClick(ptrNs);
         }
         return;
-    }
-    if (examBr0) {
+    } else if (examBr0) {
         if (ev) ev.preventDefault();
         return;
     }
@@ -261,6 +270,9 @@ function handleCellMouseEnter(col, row) {
 }
 
 function isWordQuickPickEnabled() {
+    if (typeof window.CELLAUTO_examUseWordQuickPicker === 'function' && window.CELLAUTO_examUseWordQuickPicker()) {
+        return true;
+    }
     var ch = document.getElementById('wordQuickPick');
     return !!(ch && ch.checked);
 }
@@ -347,10 +359,10 @@ function toggleCell(col, row, ev) {
         ? window.CELLAUTO_examEditBlockedReason(col, row)
         : '';
     if (examBr === 'frozen') {
-        notifyFrozenPatternBlocked(ev);
+        if (shouldShowExamFrozenBlockToast(ev)) return;
+    } else if (examBr) {
         return;
     }
-    if (examBr) return;
 
     const clickMode = document.getElementById('word_mode').value;
     if (clickMode === 'select') {
@@ -1514,6 +1526,19 @@ window.CELLAUTO_getBoardType = function () {
 
 window.CELLAUTO_getViewBoardMeta = function () {
     return { viewRow: viewRow, viewCol: viewCol, board: board };
+};
+
+/** Vizsga: minden látható cellában a rács egyezik a referenciával (teljes megoldás). */
+window.CELLAUTO_matrixMatchesExamRef = function (ref) {
+    if (!ref) return false;
+    for (var i = 0; i < viewRow; i++) {
+        var xMax = viewCol - ((board === 'hex' && (i % 2 !== 0)) ? 1 : 0);
+        for (var j = 0; j < xMax; j++) {
+            var exp = ref[j] && ref[j][i] !== undefined ? ref[j][i] | 0 : 0;
+            if ((matrix[j][i] | 0) !== exp) return false;
+        }
+    }
+    return true;
 };
 
 /** Vizsga: nem üres kiinduló cellák pozíciói (col,row → true), szerkesztés tiltásához */

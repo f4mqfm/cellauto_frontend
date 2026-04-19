@@ -1,5 +1,7 @@
 A vizsga / gyakorlas folytatasa.
 
+
+Indulaskor:
 Meg kell vizsgalni, hogy a task hoz ki vane toltve az egesz sejt
 ha nncs akkor indul a jatek ahogy eddig is
 ha minden cella a helyen van akkor:
@@ -10,22 +12,21 @@ ha tatrozik szolista akkor:
 es abban az esetben is ha a jatekos 100 ra kitoltotte a sejthalot akkor is:
 
 megjelenik egy gomb lenneb, hogy a Szolistabol mondatok
-ha erre aktontodik akkor megvaltozik a feluletnek azon resze ahol a GEN gombol vannak
+ha erre katintodik akkor megvaltozik a feluletnek azon resze ahol a GEN gombol vannak
 hegyette a szolista legordulo jelenik meg
 es atvaltodik az egerkattinas word mode modba
 mmint az elozo feluleten
 a cellakot most szavakkal lehessen kitolteni a megfelelo generaciokra kattintva
+Ebben az esetben a kezdo allapot cellait is ki kell tolteni!
 
-Modozitas:
-amikor word modba kerul az egerkattintas a cellakra ugy kell vislkedjen mit a foprograma a Eord mode
-gyors valaszto helyi menu mintha belenne kapcsolva
-es szavak kell keruljenek a cellakba a megfelelo generaciokra kattintva
+Folytatas1:
+A szolista szekcioba nem valaszthato a szolista,
+azt a szolistat kell hasznali amit a task ba betettek
+eleg a nevet kiirni a szolistanak
 
-Modositas:
-A szolistaba van relacios tabla!
-Ha gyakolrlo modba vagyok:
-ILyenkor muszaly az 1 GEN tol induljak es haladjak a szomszedossagi mezokon kifele a szovak kijelolesevel
-ha peldaul kiindulok a gen1 el es kivalasztok egy szot es melleje katintok, ugy hogy szoszedos legyen a sejtszaporodasnak megfeleloen
-a kobetjkezo cella, akkor a felugro szolistaba azok a szavak amik relacioba kovetkeznek az elozo gen tol
-azok kiemelten jelenjenek meg, hogy felajalja melyik szo kozvetkezene a relacio szerint
+a cellakra katintva legyen az a mod a bevitelnel mint az elozo feluleten a word mode ba a Goss szovalszto, hellyi menu
 
+itt a szavas modnal ki kell tolteni szavakkal azkoat a cellakat is amik megvoltak adva tehat a kiindulo cellakat is ki kell tolteni
+ha vizsga modba vagyok es teljesitettem a cellas feladatot
+az atvaltas wid modeba automatikuson tortenjen meg
+egy animacio fusson le, hogy teljesitetted a cella modot, jon a word mod
