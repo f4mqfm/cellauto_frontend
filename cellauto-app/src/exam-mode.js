@@ -176,6 +176,8 @@
     practiceWordGraph: null,
     taskGenCount: 0,
     practiceFillHelpEnabled: false,
+    /** Gyakorlás: szóválasztás után GEN helyes/helytelen üzenet buborék */
+    practiceKitoltesUzenetekEnabled: true,
     taskWordListNotes: '',
   };
 
@@ -459,6 +461,9 @@
       msg = inc || 'Helytelen szó került be.';
     }
 
+    /* Csak gyakorlás + bekapcsolt kapcsoló; vizsgán nem kellenek kattintásos GEN üzenetek. */
+    if (state.mode !== 'practice' || !state.practiceKitoltesUzenetekEnabled) return;
+
     var ptr =
       ptrOpt && typeof ptrOpt.clientX === 'number'
         ? ptrOpt
@@ -481,10 +486,14 @@
   function updateExamPracticeFillHelpToggle() {
     var wrap = $('examPracticeHelpWrap');
     var chk = $('examPracticeFillHelp');
+    var chkMsg = $('examPracticeKitoltesMessages');
     if (!wrap || !chk) return;
     var show = !!(state.active && state.mode === 'practice' && (state.taskWordListId | 0));
     wrap.hidden = !show;
-    if (show) chk.checked = !!state.practiceFillHelpEnabled;
+    if (show) {
+      chk.checked = !!state.practiceFillHelpEnabled;
+      if (chkMsg) chkMsg.checked = !!state.practiceKitoltesUzenetekEnabled;
+    }
   }
 
   window.CELLAUTO_examEditBlockedReason = function (col, row) {
@@ -568,7 +577,8 @@
       if (wrap) wrap.hidden = true;
       return;
     }
-    if (state.active && state.mode === 'practice' && wrap) wrap.hidden = false;
+    /* Gyakorlás: Good/Bad cell számláló ne foglaljon helyet — a sejtrács kész/feladat aktív közben nem kell. */
+    if (state.active && state.mode === 'practice' && wrap) wrap.hidden = true;
     if (g) g.textContent = String(state.good);
     if (b) b.textContent = String(state.bad);
   }
@@ -1738,7 +1748,7 @@
     var pc = $('examPracticeCounters');
     var nw = $('examNotesWrap');
     if (state.mode === 'practice') {
-      if (pc) pc.hidden = false;
+      if (pc) pc.hidden = true;
       if (nw) nw.hidden = true;
       if (startWrap) startWrap.hidden = true;
     } else {
@@ -2249,11 +2259,6 @@
         '</span>' +
         '</div>' +
         '</div>';
-    }
-    if (sentenceEval && sentenceEval.html) {
-      summary += sentenceEval.html;
-    }
-    if (!skipCellSummary) {
       summary +=
         '<div class="exam-eval-legend-list"><div class="exam-eval-legend-title">Jelölések a táblán</div>' +
         '<p class="exam-eval-legend-row"><span class="exam-eval-mark exam-eval-mark--x" aria-hidden="true">×</span> rossz generáció</p>' +
@@ -2261,6 +2266,9 @@
         '<p class="exam-eval-legend-row"><span class="exam-eval-mark exam-eval-mark--m" aria-hidden="true">m</span> hiányzó sejt</p>' +
         '<p class="exam-eval-legend-row"><span class="exam-eval-mark exam-eval-mark--ok" aria-hidden="true"></span> Helyes kitöltés</p>' +
         '</div>';
+    }
+    if (sentenceEval && sentenceEval.html) {
+      summary += sentenceEval.html;
     }
 
     var box = $('examEvaluationBox');
@@ -2380,6 +2388,7 @@
     state.practiceWordGraph = null;
     state.taskGenCount = 0;
     state.practiceFillHelpEnabled = false;
+    state.practiceKitoltesUzenetekEnabled = true;
     state.taskWordListNotes = '';
     var nBox = $('examTaskWordListNotes');
     if (nBox) {
@@ -2388,6 +2397,8 @@
     }
     var helpCh = $('examPracticeFillHelp');
     if (helpCh) helpCh.checked = false;
+    var msgCh = $('examPracticeKitoltesMessages');
+    if (msgCh) msgCh.checked = true;
     var helpWrap = $('examPracticeHelpWrap');
     if (helpWrap) helpWrap.hidden = true;
 
@@ -2494,6 +2505,14 @@
       helpChk._cellautoWired = true;
       helpChk.addEventListener('change', function () {
         state.practiceFillHelpEnabled = !!helpChk.checked;
+      });
+    }
+
+    var kitoltesMsgChk = $('examPracticeKitoltesMessages');
+    if (kitoltesMsgChk && !kitoltesMsgChk._cellautoWired) {
+      kitoltesMsgChk._cellautoWired = true;
+      kitoltesMsgChk.addEventListener('change', function () {
+        state.practiceKitoltesUzenetekEnabled = !!kitoltesMsgChk.checked;
       });
     }
   }

@@ -999,6 +999,10 @@ body.app-shell {
   margin: 0.55rem 0 0.85rem;
 }
 
+.exam-practice-help-wrap .exam-practice-fill-help-toggle + .exam-practice-fill-help-toggle {
+  margin-top: 0.65rem;
+}
+
 .exam-practice-fill-help-toggle {
   position: relative;
   display: flex;
