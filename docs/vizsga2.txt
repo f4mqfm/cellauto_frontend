@@ -1,0 +1,14 @@
+A vizsga / gyakorlas inditasa resznel vagyunk:
+Ha vizsga valasztodik ne induljon automatikuson henem legyen gomb a Vizsga inditasa neven egy zold jol lathato gomb
+a megjegyzes a vizsgahoz tezt inpuut nem kell megjelenjen indulasbol csak a vizsga befejeztevel
+ilyenkor ha irodik bele tartalom akkor alatt magjelenjen egy gomb, hogy MOdositasok mentese a vizsgahoz
+es beirja a megjegyzest az adott vizsgaba
+
+---eddig kesz---
+
+ha a megjegyzes elemetodik akkor alul a gomb eltunhet es ha ujbol modosul a megjegyzes szovege akkor legyen elerheto ismet
+van kirva a goog cell es a bad cell amikor jkatingatok a cellakra modosul az ertekeit
+ezek vizsgakor nem kell megjelenjenek
+viszont gyakorlas modba a viselkedese legyen a kovetkezo:
+ha ugye rossz cellara katintok akkor no a bad cell erteke de ha kitorlom a rossz cellat akkor csokkenjen a bad
+es a god cell is ha kitorlok egy good celt akkor annak is az etteke csokkenjen

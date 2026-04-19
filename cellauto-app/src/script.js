@@ -179,15 +179,11 @@ function ptrFromCellEvent(ev) {
           : null;
 }
 
-/** Vizsga gyakorlás: kiinduló minta tiltás — ugyanúgy a kattintás közelében, mint a „Nem GEN…” buborék. */
+/** Vizsga: kiinduló minta tiltás — az egér melletti buborék (lentről animálva), nem sarok-toast. */
 function notifyFrozenPatternBlocked(ev) {
     var msg = 'A kiinduló minta nem módosítható.';
     var ptr = ptrFromCellEvent(ev);
-    if (
-        typeof window.CELLAUTO_isExamPracticeMode === 'function' &&
-        window.CELLAUTO_isExamPracticeMode() &&
-        typeof window.CELLAUTO_showPracticeCellHint === 'function'
-    ) {
+    if (typeof window.CELLAUTO_showPracticeCellHint === 'function') {
         window.CELLAUTO_showPracticeCellHint(ptr, msg);
     } else if (typeof window.showToast === 'function') {
         window.showToast(msg, 3400);
@@ -205,6 +201,14 @@ function handleCellMouseDown(ev, col, row) {
     if (examBr0 === 'frozen') {
         notifyFrozenPatternBlocked(ev);
         if (ev) ev.preventDefault();
+        return;
+    }
+    if (examBr0 === 'not_started') {
+        if (ev) ev.preventDefault();
+        var ptrNs = ptrFromCellEvent(ev);
+        if (typeof window.CELLAUTO_notifyExamNotStartedCellClick === 'function') {
+            window.CELLAUTO_notifyExamNotStartedCellClick(ptrNs);
+        }
         return;
     }
     if (examBr0) {

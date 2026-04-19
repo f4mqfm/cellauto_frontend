@@ -353,6 +353,16 @@
     return apiFetch('POST', '/task-saves/' + taskSaveId + '/evaluations', body, true);
   }
 
+  /** docs/api-task-saves.md — PUT /api/task-saves/{task_save}/evaluations/{task_evaluation} */
+  async function updateTaskEvaluation(taskSaveId, evaluationId, body) {
+    return apiFetch(
+      'PUT',
+      '/task-saves/' + taskSaveId + '/evaluations/' + evaluationId,
+      body,
+      true
+    );
+  }
+
   global.CELLautoApi = {
     API_BASE: API_BASE,
     getToken: getToken,
@@ -390,5 +400,6 @@
     updateTaskSave: updateTaskSave,
     getTaskSave: getTaskSave,
     createTaskEvaluation: createTaskEvaluation,
+    updateTaskEvaluation: updateTaskEvaluation,
   };
 })(typeof window !== 'undefined' ? window : globalThis);

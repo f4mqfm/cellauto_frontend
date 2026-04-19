@@ -830,9 +830,21 @@ body.app-shell {
   font-size: 0.9rem;
 }
 
+/* [hidden] egyébként nem rejt ügyesen: a display:flex felülírja — vizsgán zárjuk el teljesen */
+#examPracticeCounters[hidden],
+.exam-counters[hidden] {
+  display: none !important;
+}
+
 .exam-timer-caption {
   font-size: 0.85rem;
   color: #444;
+  transition: color 0.2s ease, font-weight 0.2s ease;
+}
+
+.exam-timer-caption.exam-timer-caption--flash {
+  color: #b45309;
+  font-weight: 600;
 }
 
 .exam-timer-big {
@@ -1117,6 +1129,12 @@ body.app-shell {
   margin-bottom: 0.65rem;
 }
 
+.exam-notes-wrap--after-eval {
+  margin-top: 0.75rem;
+  padding-top: 0.65rem;
+  border-top: 1px solid rgba(0, 0, 0, 0.12);
+}
+
 .exam-notes-wrap label {
   display: block;
   font-size: 0.82rem;
@@ -1137,6 +1155,32 @@ body.app-shell {
   min-height: 4rem;
 }
 
+.exam-start-wrap {
+  margin: 0.5rem 0 0.75rem;
+}
+
+.exam-btn-start {
+  width: 100%;
+  padding: 0.65rem 1rem;
+  font-size: 1rem;
+  font-weight: 700;
+  background: linear-gradient(180deg, #2e7d32 0%, #1b5e20 100%);
+  color: #fff;
+  border: 1px solid #1b5e20;
+  border-radius: 8px;
+  box-shadow: 0 2px 6px rgba(27, 94, 32, 0.35);
+  cursor: pointer;
+}
+
+.exam-btn-start:hover {
+  filter: brightness(1.06);
+}
+
+.exam-note-save-btn {
+  margin-top: 0.45rem;
+  width: 100%;
+}
+
 .exam-practice-hint {
   position: fixed;
   z-index: 10050;
@@ -1149,6 +1193,16 @@ body.app-shell {
   border-radius: 8px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.28);
   pointer-events: none;
+  opacity: 0;
+  transform: translateY(14px);
+  transition:
+    opacity 200ms ease,
+    transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.exam-practice-hint.exam-practice-hint--visible {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 /* Vizsga kiértékelés: egyező cellák (Verify-szerű, a style.css .ok kommentje mellett) */

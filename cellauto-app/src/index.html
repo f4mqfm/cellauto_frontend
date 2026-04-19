@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" href="./hex.css?v=5">
   <link rel="stylesheet" href="./style.css?v=5">
-  <link rel="stylesheet" href="./app.css?v=5">
+  <link rel="stylesheet" href="./app.css?v=9">
   <title>Borsos László (Sejt automatták)</title>
   <script src="./config.js?v=5"></script>
 </head>
@@ -199,6 +199,9 @@
             <dt>Gen száma</dt><dd id="examMetaGenCount">—</dd>
             <dt>Kitöltendő cellák száma</dt><dd id="examMetaPossible">—</dd>
           </dl>
+          <div id="examStartWrap" class="exam-start-wrap" hidden>
+            <button type="button" id="examBtnStart" class="button exam-btn-start">Vizsga indítása</button>
+          </div>
           <div class="exam-gen-picker" id="examGenPicker">
             <span>Rajz generáció:</span>
             <div id="examDrawLevelRadios" class="exam-draw-level-radios"></div>
@@ -211,14 +214,15 @@
             <div id="examTimerCaption" class="exam-timer-caption"></div>
             <div id="examTimerBig" class="exam-timer-big">—</div>
           </div>
-          <div id="examNotesWrap" class="exam-notes-wrap" hidden>
-            <label for="examNoteInput">Megjegyzés a vizsgáról</label>
-            <textarea id="examNoteInput" class="exam-note-input" rows="3" maxlength="2000" placeholder="Megjegyzés a vizsgáról"></textarea>
-          </div>
           <div class="exam-eval-actions">
             <button type="button" id="examBtnEvaluate" class="button">Evaluation</button>
           </div>
           <div id="examEvaluationBox" class="exam-evaluation-box" hidden></div>
+          <div id="examNotesWrap" class="exam-notes-wrap exam-notes-wrap--after-eval" hidden>
+            <label for="examNoteInput">Megjegyzés a vizsgáról</label>
+            <textarea id="examNoteInput" class="exam-note-input" rows="3" maxlength="2000" placeholder="Megjegyzés a vizsgáról"></textarea>
+            <button type="button" id="examNoteSaveBtn" class="button exam-note-save-btn" hidden>Megjegyzés mentése a vizsgához</button>
+          </div>
           <div id="examFinishWrap" hidden>
             <button type="button" id="examBtnFinish" class="button button--outline">Vizsga / gyakorlás befejezése</button>
           </div>
@@ -398,12 +402,12 @@
   <script>
     window.__CELLAUTO_DEFER_INIT__ = true;
   </script>
-  <script src="./api.js?v=5"></script>
-  <script src="./script.js?v=5"></script>
+  <script src="./api.js?v=6"></script>
+  <script src="./script.js?v=6"></script>
   <script src="./app.js?v=5"></script>
   <script src="./board-save.js?v=5"></script>
   <script src="./task-save.js?v=1"></script>
-  <script src="./exam-mode.js?v=1"></script>
+  <script src="./exam-mode.js?v=5"></script>
 </body>
 
 </html>
