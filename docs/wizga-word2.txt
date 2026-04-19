@@ -23,3 +23,23 @@ mondatok betetele a sejtszerkezetbe
 mindegyik elepszis egy mondatot alkot a GEN1 tol indulva es haladva GEN2.. GEN3, GEN4 es a GEN5 ig
 igy kell megnezni hany modat fer el a setszerezetbe
 eszerint szamold meg hany lehetseges hely van a mondatoknak
+
+Uj feladat:
+ha Gyakorlo modba vagyunk:
+ha meg semmi szo nincs kitoltve a tablaba akkor csak a GEN1 tol lehet kezdeni
+ha mas generacios cellara katint uzenet jelenik meg, hogy: elobb a GEN1 el kezd!
+ha mar van kiroltes szoval:
+meg kell neni, hogy ahova kattint annak vane szomszedos kitoltott cellaja a generacios modnak megfeleloen
+ha nincs uzenet megint: nincs szomszedos cella kitoltve
+ha van akkor elojon a szlista amibol lehet valasztni de:
+megkeresni azokat a szavakat annak a generacionak megfeleloen ahova kattint, hogy a GEN1 tol kiindulva
+relacios resze kell legyen a kattintott cellaba levo szavak
+azok a szavak a listana amik megjelennek es relacios resze kiemelten jelenjenek meg, a tobbi is megjelenik cska normal modba
+kivalaszthato barmelyik amugy
+ha kivalasztotta a szot es beirodik akkor:
+a szolistanak van generacios uzenete:
+ha jo szot tett be az adott generacioba es van a listaba generacios unenet akkor a correct_answer_message jelenjen meg
+ha nem jo szot tett be es van gen uzenet beirva a kkor az incorrect gen message jelenjen meg
+ha nincsenek genercios uzenetek akkor ha jo: helyes szo kerul be
+egyebkent: helyteel szo kerult be
+

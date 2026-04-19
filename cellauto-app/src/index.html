@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" href="./hex.css?v=5">
   <link rel="stylesheet" href="./style.css?v=5">
-  <link rel="stylesheet" href="./app.css?v=15">
+  <link rel="stylesheet" href="./app.css?v=20">
   <title>Borsos László (Sejt automatták)</title>
   <script src="./config.js?v=5"></script>
 </head>
@@ -64,6 +64,7 @@
             <span class="exam-task-wordlist-readonly__label">Szólista (feladat):</span>
             <span id="examTaskWordListName" class="exam-task-wordlist-readonly__name">—</span>
           </div>
+          <div id="examTaskWordListNotes" class="exam-task-wordlist-notes" hidden></div>
           <label for="wordListSelect" id="wordListSelectLabel">Szólista</label>
           <select id="wordListSelect"></select>
           <div id="wordLevelWrap">
@@ -208,6 +209,13 @@
             <dt class="exam-meta-sentrows" hidden id="examMetaEmbedDt">Kinyerhető mondatok száma</dt>
             <dd class="exam-meta-sentrows" hidden id="examMetaEmbedDd"><span id="examMetaEmbeddableSentences">—</span></dd>
           </dl>
+          <div id="examPracticeHelpWrap" class="exam-practice-help-wrap" hidden>
+            <label class="exam-practice-fill-help-toggle">
+              <input type="checkbox" id="examPracticeFillHelp" class="exam-practice-fill-help-toggle__input" />
+              <span class="exam-practice-fill-help-toggle__rail" aria-hidden="true"></span>
+              <span class="exam-practice-fill-help-toggle__text">Segítség a kitöltéshez</span>
+            </label>
+          </div>
           <div id="examStartWrap" class="exam-start-wrap" hidden>
             <button type="button" id="examBtnStart" class="button exam-btn-start">Vizsga indítása</button>
           </div>
@@ -428,12 +436,12 @@
   <script>
     window.__CELLAUTO_DEFER_INIT__ = true;
   </script>
-  <script src="./api.js?v=7"></script>
-  <script src="./script.js?v=11"></script>
+  <script src="./api.js?v=8"></script>
+  <script src="./script.js?v=16"></script>
   <script src="./app.js?v=6"></script>
   <script src="./board-save.js?v=5"></script>
   <script src="./task-save.js?v=1"></script>
-  <script src="./exam-mode.js?v=19"></script>
+  <script src="./exam-mode.js?v=24"></script>
 </body>
 
 </html>

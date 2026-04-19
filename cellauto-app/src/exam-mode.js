@@ -172,7 +172,320 @@
     examAutoNoWordlistEvalTriggered: false,
     examAvailableSentences: 0,
     examEmbeddableSentences: 0,
+    practiceCellWordIds: null,
+    practiceWordGraph: null,
+    taskGenCount: 0,
+    practiceFillHelpEnabled: false,
+    taskWordListNotes: '',
   };
+
+  function ensurePracticeCellWordIdsMap() {
+    if (!state.practiceCellWordIds) state.practiceCellWordIds = Object.create(null);
+    return state.practiceCellWordIds;
+  }
+
+  function parseWordGenMessagesPayload(msgPayload) {
+    var out = Object.create(null);
+    var raw =
+      msgPayload && Array.isArray(msgPayload.generations)
+        ? msgPayload.generations
+        : msgPayload && msgPayload.data && Array.isArray(msgPayload.data.generations)
+          ? msgPayload.data.generations
+          : null;
+    if (!raw) return out;
+    for (var i = 0; i < raw.length; i++) {
+      var row = raw[i];
+      var gn = parseIntSafe(row.generation, 0);
+      if (gn < 1) continue;
+      var c = row.correct_answer_message;
+      var ic = row.incorrect_answer_message;
+      out[gn] = {
+        correct: c != null && String(c).trim() !== '' ? String(c).trim() : '',
+        incorrect: ic != null && String(ic).trim() !== '' ? String(ic).trim() : '',
+      };
+    }
+    return out;
+  }
+
+  /** Mely szó-ID-k szerepelnek legalább egy teljes GEN1…GENgc relációs láncban (gc = feladat generációszáma). */
+  function computeFullPathWordIdFlags(byGen, adj, wordGen, edgeCount, gc) {
+    var flags = {};
+    var g;
+    for (g = 1; g <= gc; g++) flags[g] = Object.create(null);
+
+    if (gc < 1) return flags;
+
+    if (!edgeCount) {
+      for (var g2 = 1; g2 <= gc; g2++) {
+        var row0 = byGen[g2];
+        if (!row0) continue;
+        for (var i0 = 0; i0 < row0.length; i0++) flags[g2][row0[i0].id] = true;
+      }
+      return flags;
+    }
+
+    function dfs(chain) {
+      if (chain.length === gc) {
+        for (var i = 0; i < chain.length; i++) flags[i + 1][chain[i]] = true;
+        return;
+      }
+      var last = chain[chain.length - 1];
+      var nextGen = chain.length + 1;
+      var outs = adj[last] || [];
+      for (var j = 0; j < outs.length; j++) {
+        var toId = outs[j];
+        if (wordGen[toId] !== nextGen) continue;
+        dfs(chain.concat([toId]));
+      }
+    }
+
+    var g1 = byGen[1];
+    if (g1 && g1.length) {
+      for (var s = 0; s < g1.length; s++) dfs([g1[s].id]);
+    }
+    return flags;
+  }
+
+  function buildPracticeWordGraph(wordsPayload, relPayload, msgPayload, gcPathLen) {
+    var byGen = normalizeWordGenerationsByNum(wordsPayload);
+    var wordGen = Object.create(null);
+    var gk;
+    for (gk in byGen) {
+      if (!Object.prototype.hasOwnProperty.call(byGen, gk)) continue;
+      var gn = parseIntSafe(gk, 0);
+      var words = byGen[gk];
+      for (var wi = 0; wi < words.length; wi++) {
+        wordGen[words[wi].id] = gn;
+      }
+    }
+    var rels = unwrapRelationsPayload(relPayload);
+    var adj = buildAdjacencyFromRelations(rels, wordGen);
+    var edgeCount = 0;
+    var ak;
+    for (ak in adj) {
+      if (!Object.prototype.hasOwnProperty.call(adj, ak)) continue;
+      edgeCount += (adj[ak] && adj[ak].length) | 0;
+    }
+    var gc = parseIntSafe(gcPathLen, 1);
+    if (gc < 1) gc = 1;
+    var fullPathWordIds = computeFullPathWordIdFlags(byGen, adj, wordGen, edgeCount, gc);
+    return {
+      byGen: byGen,
+      adj: adj,
+      edgeCount: edgeCount,
+      wordGen: wordGen,
+      gc: gc,
+      fullPathWordIds: fullPathWordIds,
+      genMessages: parseWordGenMessagesPayload(msgPayload || {}),
+    };
+  }
+
+  async function preloadPracticeWordGraph() {
+    state.practiceWordGraph = null;
+    var lid = state.taskWordListId | 0;
+    if (!lid || state.mode !== 'practice' || !state.examWordSentencePhase) return;
+    try {
+      var wordsPayload = await api.getListWords(lid);
+      var relPayload = [];
+      if (typeof api.getListWordRelations === 'function') {
+        try {
+          relPayload = await api.getListWordRelations(lid);
+        } catch (e1) {}
+      }
+      var msgPayload = null;
+      if (typeof api.getListWordGenMessages === 'function') {
+        try {
+          msgPayload = await api.getListWordGenMessages(lid);
+        } catch (e2) {}
+      }
+      var gcPath =
+        parseIntSafe(state.taskGenCount, 0) ||
+        parseIntSafe(state.taskRow && (state.taskRow.generations_count || state.taskRow.generationsCount), 0) ||
+        5;
+      state.practiceWordGraph = buildPracticeWordGraph(wordsPayload, relPayload, msgPayload, gcPath);
+    } catch (e) {
+      state.practiceWordGraph = null;
+    }
+  }
+
+  function countPracticeWordsFilled() {
+    var o = state.practiceCellWordIds;
+    if (!o) return 0;
+    var n = 0;
+    var k;
+    for (k in o) {
+      if (Object.prototype.hasOwnProperty.call(o, k) && o[k]) n++;
+    }
+    return n;
+  }
+
+  function practiceWordIdsAllInGeneration(gen) {
+    var g = state.practiceWordGraph;
+    if (!g || !g.byGen[gen]) return null;
+    var fp = g.fullPathWordIds && g.fullPathWordIds[gen];
+    if (!fp) return null;
+    var out = [];
+    var k;
+    for (k in fp) {
+      if (Object.prototype.hasOwnProperty.call(fp, k) && fp[k]) {
+        var idn = parseIntSafe(k, 0);
+        if (idn) out.push(idn);
+      }
+    }
+    return out.length ? out : null;
+  }
+
+  function practiceHasAdjacentFilledPrevGen(col, row, gen) {
+    var matrix = typeof window.matrix !== 'undefined' ? window.matrix : null;
+    if (!matrix || typeof window.CELLAUTO_forEachBoardNeighbor !== 'function') return false;
+    var ok = false;
+    window.CELLAUTO_forEachBoardNeighbor(col, row, function (nx, ny) {
+      if ((matrix[nx][ny] | 0) !== gen - 1) return;
+      var map = ensurePracticeCellWordIdsMap();
+      if (map[nx + ',' + ny]) ok = true;
+    });
+    return ok;
+  }
+
+  function practiceRelationHighlightIdsForCell(col, row, gen) {
+    var g = state.practiceWordGraph;
+    var matrix = typeof window.matrix !== 'undefined' ? window.matrix : null;
+    if (!g || !matrix) return null;
+
+    if (!g.edgeCount) return practiceWordIdsAllInGeneration(gen);
+
+    if (gen <= 1) return practiceWordIdsAllInGeneration(1);
+
+    var seen = Object.create(null);
+    var out = [];
+    function addId(id) {
+      if (!id || seen[id]) return;
+      seen[id] = true;
+      out.push(id);
+    }
+
+    if (typeof window.CELLAUTO_forEachBoardNeighbor !== 'function') return practiceWordIdsAllInGeneration(gen);
+
+    window.CELLAUTO_forEachBoardNeighbor(col, row, function (nx, ny) {
+      if ((matrix[nx][ny] | 0) !== gen - 1) return;
+      var map = ensurePracticeCellWordIdsMap();
+      var widPrev = map[nx + ',' + ny];
+      if (!widPrev) return;
+      var outs = g.adj[widPrev] || [];
+      for (var i = 0; i < outs.length; i++) addId(outs[i]);
+    });
+    var fp = g.fullPathWordIds && g.fullPathWordIds[gen];
+    if (fp) {
+      var filtered = [];
+      for (var f = 0; f < out.length; f++) {
+        var oid = out[f];
+        if (fp[oid]) filtered.push(oid);
+      }
+      return filtered;
+    }
+    return out;
+  }
+
+  function practiceWordIdFromLabel(wordStr, gen) {
+    var g = state.practiceWordGraph;
+    if (!g || !g.byGen[gen]) return 0;
+    var words = g.byGen[gen];
+    var s = String(wordStr || '').trim();
+    for (var i = 0; i < words.length; i++) {
+      if (words[i].word === s) return words[i].id;
+    }
+    return 0;
+  }
+
+  window.CELLAUTO_isPracticeWordSentencePhase = function () {
+    return !!(
+      state.active &&
+      state.mode === 'practice' &&
+      state.examWordSentencePhase &&
+      (state.taskWordListId | 0)
+    );
+  };
+
+  window.CELLAUTO_practiceWordPickGate = function (col, row) {
+    if (!window.CELLAUTO_isPracticeWordSentencePhase()) return { ok: true, relationHighlightIds: null };
+
+    var matrix = typeof window.matrix !== 'undefined' ? window.matrix : null;
+    if (!matrix || !matrix[col]) return { ok: false, message: '', relationHighlightIds: null };
+
+    var gen = matrix[col][row] | 0;
+    if (gen <= 0) return { ok: false, message: 'Érvénytelen cella.', relationHighlightIds: null };
+
+    var filled = countPracticeWordsFilled();
+
+    if (filled === 0) {
+      if (gen !== 1) return { ok: false, message: 'Előbb a GEN 1-gyel kezdj!', relationHighlightIds: null };
+      return { ok: true, relationHighlightIds: practiceWordIdsAllInGeneration(1) };
+    }
+
+    if (gen === 1) return { ok: true, relationHighlightIds: practiceWordIdsAllInGeneration(1) };
+
+    if (!practiceHasAdjacentFilledPrevGen(col, row, gen)) {
+      return { ok: false, message: 'Nincs szomszédos cella kitölve.', relationHighlightIds: null };
+    }
+
+    return { ok: true, relationHighlightIds: practiceRelationHighlightIdsForCell(col, row, gen) };
+  };
+
+  window.CELLAUTO_onPracticeWordPicked = function (col, row, wordStr, highlightIds, ptrOpt) {
+    if (!window.CELLAUTO_isPracticeWordSentencePhase()) return;
+    var matrix = typeof window.matrix !== 'undefined' ? window.matrix : null;
+    if (!matrix || !matrix[col]) return;
+    var gen = matrix[col][row] | 0;
+    var wid = practiceWordIdFromLabel(wordStr, gen);
+    var map = ensurePracticeCellWordIdsMap();
+    if (wid) map[col + ',' + row] = wid;
+
+    var valid;
+    if (highlightIds === null || highlightIds === undefined) valid = true;
+    else if (!highlightIds.length) valid = false;
+    else valid = wid > 0 && highlightIds.indexOf(wid) >= 0;
+
+    var gm =
+      state.practiceWordGraph && state.practiceWordGraph.genMessages
+        ? state.practiceWordGraph.genMessages[gen]
+        : null;
+    var cor = gm && gm.correct ? gm.correct : '';
+    var inc = gm && gm.incorrect ? gm.incorrect : '';
+
+    var msg;
+    if (valid) {
+      msg = cor || 'Helyes szó került be.';
+    } else {
+      msg = inc || 'Helytelen szó került be.';
+    }
+
+    var ptr =
+      ptrOpt && typeof ptrOpt.clientX === 'number'
+        ? ptrOpt
+        : typeof window.__cellautoLastPointer === 'object' && window.__cellautoLastPointer
+          ? window.__cellautoLastPointer
+          : null;
+    if (ptr && typeof window.CELLAUTO_showPracticeCellHint === 'function') {
+      window.CELLAUTO_showPracticeCellHint(ptr, msg);
+    } else if (typeof window.showToast === 'function') {
+      window.showToast(msg, 4200);
+    }
+  };
+
+  window.CELLAUTO_practiceWordIdForLabel = practiceWordIdFromLabel;
+
+  window.CELLAUTO_practiceFillHelpActive = function () {
+    return !!state.practiceFillHelpEnabled;
+  };
+
+  function updateExamPracticeFillHelpToggle() {
+    var wrap = $('examPracticeHelpWrap');
+    var chk = $('examPracticeFillHelp');
+    if (!wrap || !chk) return;
+    var show = !!(state.active && state.mode === 'practice' && (state.taskWordListId | 0));
+    wrap.hidden = !show;
+    if (show) chk.checked = !!state.practiceFillHelpEnabled;
+  }
 
   window.CELLAUTO_examEditBlockedReason = function (col, row) {
     if (!state.active) return '';
@@ -588,6 +901,32 @@
     if (task.author_name) return String(task.author_name).trim();
     if (task.creator_name) return String(task.creator_name).trim();
     return '—';
+  }
+
+  function extractWordListNotesFromTask(task) {
+    if (!task || typeof task !== 'object') return '';
+    var wl = task.word_list || task.wordList;
+    if (wl && wl.notes != null && String(wl.notes).trim()) return String(wl.notes).trim();
+    if (task.word_list_notes != null && String(task.word_list_notes).trim())
+      return String(task.word_list_notes).trim();
+    if (task.wordListNotes != null && String(task.wordListNotes).trim())
+      return String(task.wordListNotes).trim();
+    return '';
+  }
+
+  function syncExamTaskWordListNotesDom() {
+    var box = $('examTaskWordListNotes');
+    if (!box) return;
+    var txt = state.taskWordListNotes ? String(state.taskWordListNotes).trim() : '';
+    var ro = $('examTaskWordListReadonly');
+    var locked = ro && !ro.hidden;
+    if (!txt || !locked) {
+      box.hidden = true;
+      if (!locked) box.textContent = '';
+      return;
+    }
+    box.hidden = false;
+    box.textContent = txt;
   }
 
   function formatTaskListLabel(r, t) {
@@ -1039,6 +1378,7 @@
       sel.removeAttribute('aria-hidden');
       sel.disabled = false;
     }
+    syncExamTaskWordListNotesDom();
   }
 
   function resolveTaskWordListDisplayName() {
@@ -1066,6 +1406,7 @@
       sel.setAttribute('aria-hidden', 'true');
       sel.disabled = true;
     }
+    syncExamTaskWordListNotesDom();
   }
 
   function showExamCellToWordAnimation(done) {
@@ -1268,6 +1609,9 @@
 
     var tries = 0;
     function finishWordSentenceActivation() {
+      state.practiceCellWordIds = Object.create(null);
+      state.practiceWordGraph = null;
+      preloadPracticeWordGraph();
       applyExamWordListLockedUi();
       if (typeof window.reDrawTable === 'function') window.reDrawTable();
     }
@@ -1355,11 +1699,23 @@
     state.totalSolutionCells = countNonZeroInRef(ref);
     state.timeLimit = parseIntSafe(task.time_limit || task.timeLimit, 120);
     state.taskWordListId = parseIntSafe(task.word_list_id || task.wordListId, 0);
+    state.taskGenCount = gc;
     state.taskWordListName = String(
       task.word_list_name || task.wordListName || (task.word_list && task.word_list.name) || ''
     ).trim();
+    state.taskWordListNotes = extractWordListNotesFromTask(task);
     state.examAutoWordTriggered = false;
     state.examAutoNoWordlistEvalTriggered = false;
+
+    if ((state.taskWordListId | 0) && !state.taskWordListNotes) {
+      try {
+        var lrNotes = await api.getList(state.taskWordListId);
+        var listEnt = unwrapEntity(lrNotes);
+        if (listEnt && listEnt.notes != null && String(listEnt.notes).trim())
+          state.taskWordListNotes = String(listEnt.notes).trim();
+      } catch (e) {}
+    }
+    syncExamTaskWordListNotesDom();
 
     fillMeta(task, gc);
     await refreshExamWordSentenceMeta(task, gc, state.refMatrix);
@@ -1410,6 +1766,7 @@
     $('saveLoadWrap').hidden = true;
     $('vizsgaWrap').hidden = true;
     $('sidebarExamPanel').hidden = false;
+    updateExamPracticeFillHelpToggle();
 
     var neigh = $('neighbors');
     var bs = $('boardSizeSelect');
@@ -1673,6 +2030,21 @@
     if (sAv) sAv.textContent = '—';
     if (sEm) sEm.textContent = '—';
 
+    state.practiceCellWordIds = null;
+    state.practiceWordGraph = null;
+    state.taskGenCount = 0;
+    state.practiceFillHelpEnabled = false;
+    state.taskWordListNotes = '';
+    var nBox = $('examTaskWordListNotes');
+    if (nBox) {
+      nBox.hidden = true;
+      nBox.textContent = '';
+    }
+    var helpCh = $('examPracticeFillHelp');
+    if (helpCh) helpCh.checked = false;
+    var helpWrap = $('examPracticeHelpWrap');
+    if (helpWrap) helpWrap.hidden = true;
+
     var neigh = $('neighbors');
     var bs = $('boardSizeSelect');
     if (neigh) neigh.disabled = false;
@@ -1770,6 +2142,14 @@
 
     var exitBackBtn = $('examBtnExitBack');
     if (exitBackBtn) exitBackBtn.addEventListener('click', exitExamMode);
+
+    var helpChk = $('examPracticeFillHelp');
+    if (helpChk && !helpChk._cellautoWired) {
+      helpChk._cellautoWired = true;
+      helpChk.addEventListener('change', function () {
+        state.practiceFillHelpEnabled = !!helpChk.checked;
+      });
+    }
   }
 
   document.addEventListener('DOMContentLoaded', wire);

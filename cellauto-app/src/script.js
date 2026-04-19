@@ -294,7 +294,7 @@ function applyWordToCell(col, row, value) {
     cell.innerHTML = insertLineBreaks(value);
 }
 
-function openWordQuickPicker(col, row) {
+function openWordQuickPicker(col, row, relationHighlightIdsDisplay, relationHighlightIdsValidation) {
     const generation = matrix[col][row];
     const source = document.getElementById('lev' + generation);
     if (!source) return;
@@ -302,38 +302,79 @@ function openWordQuickPicker(col, row) {
     const targetCell = document.getElementById(cellDomId(col, row));
     if (!targetCell) return;
 
+    const validationIds =
+        relationHighlightIdsValidation !== undefined ? relationHighlightIdsValidation : relationHighlightIdsDisplay;
+
     closeWordQuickPicker();
 
     const box = document.createElement('div');
     box.className = 'word-quick-picker';
+    box.tabIndex = -1;
 
-    const sel = document.createElement('select');
-    sel.size = Math.min(8, Math.max(2, source.options.length));
-    for (let i = 0; i < source.options.length; i++) {
-        const o = source.options[i];
-        const no = document.createElement('option');
-        no.value = o.value;
-        no.textContent = o.textContent;
-        if (o.selected) no.selected = true;
-        sel.appendChild(no);
+    const list = document.createElement('div');
+    list.className = 'word-quick-picker__list';
+    list.setAttribute('role', 'listbox');
+
+    let firstBtn = null;
+
+    function wirePick(o, isRelation) {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className =
+            'word-quick-picker__btn' +
+            (isRelation ? ' word-quick-picker__btn--relation' : '');
+        var label = String(o.textContent || o.value || '').trim();
+        btn.innerHTML =
+            '<span class="word-quick-picker__label">' +
+            String(label).replace(/</g, '&lt;').replace(/>/g, '&gt;') +
+            '</span>';
+        btn.addEventListener('click', function (ev) {
+            applyWordToCell(col, row, o.value);
+            if (
+                typeof window.CELLAUTO_isPracticeWordSentencePhase === 'function' &&
+                window.CELLAUTO_isPracticeWordSentencePhase() &&
+                typeof window.CELLAUTO_onPracticeWordPicked === 'function'
+            ) {
+                window.CELLAUTO_onPracticeWordPicked(
+                    col,
+                    row,
+                    o.value,
+                    validationIds || null,
+                    { clientX: ev.clientX, clientY: ev.clientY }
+                );
+            }
+            closeWordQuickPicker();
+        });
+        if (!firstBtn) firstBtn = btn;
+        list.appendChild(btn);
     }
 
-    sel.addEventListener('change', function () {
-        applyWordToCell(col, row, sel.value);
-        closeWordQuickPicker();
-    });
+    for (let i = 0; i < source.options.length; i++) {
+        const o = source.options[i];
+        if (!o.value || o.value === '---') continue;
+        let isRel = false;
+        if (
+            relationHighlightIdsDisplay &&
+            relationHighlightIdsDisplay.length &&
+            typeof window.CELLAUTO_practiceWordIdForLabel === 'function'
+        ) {
+            var oid = window.CELLAUTO_practiceWordIdForLabel(o.value, generation);
+            if (oid && relationHighlightIdsDisplay.indexOf(oid) >= 0) isRel = true;
+        }
+        wirePick(o, isRel);
+    }
 
-    sel.addEventListener('keydown', function (ev) {
+    box.appendChild(list);
+    document.body.appendChild(box);
+    wordQuickPickerEl = box;
+    wordQuickPickerOpenedAt = Date.now();
+
+    box.addEventListener('keydown', function (ev) {
         if (ev.key === 'Escape') {
             ev.preventDefault();
             closeWordQuickPicker();
         }
     });
-
-    box.appendChild(sel);
-    document.body.appendChild(box);
-    wordQuickPickerEl = box;
-    wordQuickPickerOpenedAt = Date.now();
 
     const r = targetCell.getBoundingClientRect();
     const margin = 6;
@@ -349,7 +390,8 @@ function openWordQuickPicker(col, row) {
     box.style.top = top + 'px';
 
     setTimeout(function () {
-        sel.focus();
+        if (firstBtn) firstBtn.focus();
+        else box.focus();
     }, 0);
 }
 
@@ -388,9 +430,42 @@ function toggleCell(col, row, ev) {
             window.CELLAUTO_examAfterCellChange(col, row, prev, matrix[col][row], ptrT);
         }
     } else {
+        var practicePhase =
+            typeof window.CELLAUTO_isPracticeWordSentencePhase === 'function' &&
+            window.CELLAUTO_isPracticeWordSentencePhase();
+        var pg = null;
+        if (practicePhase && typeof window.CELLAUTO_practiceWordPickGate === 'function') {
+            pg = window.CELLAUTO_practiceWordPickGate(col, row);
+            if (!pg.ok) {
+                var ptrGate =
+                    ev && typeof ev.clientX === 'number'
+                        ? { clientX: ev.clientX, clientY: ev.clientY }
+                        : typeof window.__cellautoLastPointer === 'object' && window.__cellautoLastPointer
+                          ? window.__cellautoLastPointer
+                          : null;
+                if (ptrGate && typeof window.CELLAUTO_showPracticeCellHint === 'function') {
+                    window.CELLAUTO_showPracticeCellHint(ptrGate, pg.message || '');
+                } else if (typeof window.showToast === 'function') {
+                    window.showToast(pg.message || '', 4200);
+                }
+                return;
+            }
+        }
+
         if (matrix[col][row] > 0 && matrix[col][row] <= matrixWord.length) {
             if (isWordQuickPickEnabled()) {
-                openWordQuickPicker(col, row);
+                (function () {
+                    var rawH = pg && pg.relationHighlightIds ? pg.relationHighlightIds : null;
+                    var dispH = rawH;
+                    if (
+                        practicePhase &&
+                        typeof window.CELLAUTO_practiceFillHelpActive === 'function' &&
+                        !window.CELLAUTO_practiceFillHelpActive()
+                    ) {
+                        dispH = null;
+                    }
+                    openWordQuickPicker(col, row, dispH, rawH);
+                })();
                 return;
             }
 
@@ -400,6 +475,21 @@ function toggleCell(col, row, ev) {
             const selectedOption = firstSelect.options[selectedIndex];
             const selectedValue = selectedOption ? selectedOption.value : '---';
             applyWordToCell(col, row, selectedValue);
+            if (practicePhase && typeof window.CELLAUTO_onPracticeWordPicked === 'function') {
+                var ptrPick =
+                    ev && typeof ev.clientX === 'number'
+                        ? { clientX: ev.clientX, clientY: ev.clientY }
+                        : typeof window.__cellautoLastPointer === 'object' && window.__cellautoLastPointer
+                          ? window.__cellautoLastPointer
+                          : null;
+                window.CELLAUTO_onPracticeWordPicked(
+                    col,
+                    row,
+                    selectedValue,
+                    pg && pg.relationHighlightIds ? pg.relationHighlightIds : null,
+                    ptrPick
+                );
+            }
         }
         // word mode
     }
@@ -1594,6 +1684,40 @@ window.CELLAUTO_countSpatialGenerationPaths = function (ref, gc) {
  */
 window.CELLAUTO_refHasGenerationPath = function (ref, gc) {
     return window.CELLAUTO_countSpatialGenerationPaths(ref, gc) > 0;
+};
+
+/** Szomszédos cellák bejárása ugyanazzal a neighbors móddal, mint a vizsga referenciaút (Gyakorlás szólista szabály). */
+window.CELLAUTO_forEachBoardNeighbor = function (col, row, visitor) {
+    if (typeof visitor !== 'function') return;
+    var neighEl = document.getElementById('neighbors');
+    var method = neighEl ? neighEl.value : 'side';
+    if (method === 'life' || method === 'life_hex') return;
+    var vc = viewCol;
+    var vr = viewRow;
+    var bt = board;
+    function validCell(x, y) {
+        if (x < 0 || y < 0 || x >= vc || y >= vr) return false;
+        if (bt === 'hex' && y % 2 !== 0 && x === vc - 1) return false;
+        return true;
+    }
+    function eachNeighbor(c, r, fn) {
+        if (method === 'side') {
+            var side = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+            for (var i = 0; i < side.length; i++) fn(c + side[i][0], r + side[i][1]);
+        } else if (method === 'apex') {
+            var apex = [[-1, -1], [1, 1], [-1, 1], [1, -1]];
+            for (var j = 0; j < apex.length; j++) fn(c + apex[j][0], r + apex[j][1]);
+        } else if (method === 'hex') {
+            var offsetsEven = [[0, -1], [1, 0], [0, 1], [-1, 0], [-1, -1], [-1, 1]];
+            var offsetsOdd = [[0, -1], [1, 0], [0, 1], [-1, 0], [1, -1], [1, 1]];
+            var offs = r % 2 === 0 ? offsetsEven : offsetsOdd;
+            for (var k = 0; k < offs.length; k++) fn(c + offs[k][0], r + offs[k][1]);
+        }
+    }
+    eachNeighbor(col, row, function (nx, ny) {
+        if (!validCell(nx, ny)) return;
+        visitor(nx, ny);
+    });
 };
 
 /** Vizsga: minden látható cellában a rács egyezik a referenciával (teljes megoldás). */
