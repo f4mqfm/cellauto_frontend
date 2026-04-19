@@ -1,0 +1,25 @@
+A vizsga / gyakrolas resz kibovitese:
+Ha a task ba van szolista hozzzaadva akkor a Kitoltendo cellak szama ala bejon:
+Elerheto mondatok szama: ide a szolistahoz tartozo modatok szama kerul (a relacio ahogy megvan adva)
+Kiroltheto mondatok szama: ide pedig a cellaracs GEN1 bol kiindulva mindig kovetni a szomszedos cellakat es
+ahany mondat belefer a sejt cellakba kiindulva a GEN 1 tol a GENn ig
+Lehet a mondatnak kozos resze is ha a vegen elagazik a sejt
+tehat lehet az kiindulas es az elso 4 gen ugyanaz de az 5 GEN nel elagazik
+akkor a mondat eleje ugyanazon az uton megy de elagazik a vegenel
+ezek is kulon mondatnak szamitana
+Az a kitet, hogy minden mondat csak 1x szerepelhet
+itt a docs/szavak.png be van egy pelda, ez egy 5 gen es sejtautomatta
+ide 5 szavas szolistak kerulnek
+a GEN1 tol , a kozepe ennek zold mezo, innen kiindulva haldva a szolszedos cellak menten az 5 Szolistabol
+ki kell rakni mondatokat amik akkor ertelemsek ha a relacioba vannak egyik a masik utann
+Le kell ellenorizni hany (ebben az esetben 5 szavas) mondat fer bele a sejtszerkezetbe es azt a szamot kell kiirtni 
+az: Elerheto mondatok szama
+
+
+uj megkozelites:
+nem jol lett kiszamolva az : Elerheto mondatok szama
+mellekeltem egy szavak_spec.png filet amibe elipszis formaba berajzoltam, hogyan lehetsegesek a 
+mondatok betetele a sejtszerkezetbe
+mindegyik elepszis egy mondatot alkot a GEN1 tol indulva es haladva GEN2.. GEN3, GEN4 es a GEN5 ig
+igy kell megnezni hany modat fer el a setszerezetbe
+eszerint szamold meg hany lehetseges hely van a mondatoknak

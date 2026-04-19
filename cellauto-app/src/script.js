@@ -1528,6 +1528,74 @@ window.CELLAUTO_getViewBoardMeta = function () {
     return { viewRow: viewRow, viewCol: viewCol, board: board };
 };
 
+/**
+ * Hány különböző GEN1 → GEN2 → … → GEN gc szomszéd-lánc van a táblán (aktuális neighbors mód),
+ * ahol minden lépés szomszédos cellára megy és a referencia értéke sorban 1..gc.
+ * (Szavak_spec / ellipszisek szerinti „mondat-helyek” darabszáma.)
+ */
+window.CELLAUTO_countSpatialGenerationPaths = function (ref, gc) {
+    if (!ref || gc < 1) return 0;
+    var vr = viewRow;
+    var vc = viewCol;
+    var bt = board;
+    var neighEl = document.getElementById('neighbors');
+    var method = neighEl ? neighEl.value : 'side';
+
+    if (method === 'life' || method === 'life_hex') return 0;
+
+    function validCell(x, y) {
+        if (x < 0 || y < 0 || x >= vc || y >= vr) return false;
+        if (bt === 'hex' && y % 2 !== 0 && x === vc - 1) return false;
+        return true;
+    }
+
+    function eachNeighbor(col, row, fn) {
+        if (method === 'side') {
+            var side = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+            for (var i = 0; i < side.length; i++) fn(col + side[i][0], row + side[i][1]);
+        } else if (method === 'apex') {
+            var apex = [[-1, -1], [1, 1], [-1, 1], [1, -1]];
+            for (var j = 0; j < apex.length; j++) fn(col + apex[j][0], row + apex[j][1]);
+        } else if (method === 'hex') {
+            var offsetsEven = [[0, -1], [1, 0], [0, 1], [-1, 0], [-1, -1], [-1, 1]];
+            var offsetsOdd = [[0, -1], [1, 0], [0, 1], [-1, 0], [1, -1], [1, 1]];
+            var offs = row % 2 === 0 ? offsetsEven : offsetsOdd;
+            for (var k = 0; k < offs.length; k++) fn(col + offs[k][0], row + offs[k][1]);
+        }
+    }
+
+    function dfs(cx, cy, g) {
+        if (g === gc) return 1;
+        var want = g + 1;
+        var sum = 0;
+        eachNeighbor(cx, cy, function (xx, yy) {
+            if (!validCell(xx, yy)) return;
+            var cell = ref[xx] && ref[xx][yy] !== undefined ? ref[xx][yy] | 0 : 0;
+            if (cell !== want) return;
+            sum += dfs(xx, yy, want);
+        });
+        return sum;
+    }
+
+    var total = 0;
+    for (var y = 0; y < vr; y++) {
+        var xMax = vc - (bt === 'hex' && y % 2 !== 0 ? 1 : 0);
+        for (var x = 0; x < xMax; x++) {
+            var v = ref[x] && ref[x][y] !== undefined ? ref[x][y] | 0 : 0;
+            if (v !== 1) continue;
+            total += dfs(x, y, 1);
+        }
+    }
+    return total;
+};
+
+/**
+ * Van-e legalább egy GEN1 … GEN gc szomszéd-lánc a megoldás-mátrixon.
+ */
+window.CELLAUTO_refHasGenerationPath = function (ref, gc) {
+    return window.CELLAUTO_countSpatialGenerationPaths(ref, gc) > 0;
+};
+
 /** Vizsga: minden látható cellában a rács egyezik a referenciával (teljes megoldás). */
 window.CELLAUTO_matrixMatchesExamRef = function (ref) {
     if (!ref) return false;

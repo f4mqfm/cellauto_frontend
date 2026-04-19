@@ -825,6 +825,25 @@ body.app-shell {
   margin-bottom: 0.35rem;
 }
 
+.exam-task-modal__field--list .exam-task-modal__name-filter {
+  width: 100%;
+  box-sizing: border-box;
+  margin-bottom: 0.55rem;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid #c5d0e3;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  line-height: 1.35;
+  color: #0f172a;
+  background: #fff;
+}
+
+.exam-task-modal__field--list .exam-task-modal__name-filter:focus {
+  outline: none;
+  border-color: #2c5aa0;
+  box-shadow: 0 0 0 2px rgba(44, 90, 160, 0.22);
+}
+
 .exam-task-modal__field--list select {
   margin-top: 0.05rem;
   min-height: 11.5rem;

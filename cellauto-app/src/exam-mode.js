@@ -170,6 +170,8 @@
     taskWordListName: '',
     examAutoWordTriggered: false,
     examAutoNoWordlistEvalTriggered: false,
+    examAvailableSentences: 0,
+    examEmbeddableSentences: 0,
   };
 
   window.CELLAUTO_examEditBlockedReason = function (col, row) {
@@ -628,6 +630,187 @@
     setExamMetaWordListFromTask(state.taskRow);
   };
 
+  function normalizeWordGenerationsByNum(data) {
+    var raw = [];
+    if (data && Array.isArray(data.generations)) raw = data.generations;
+    else if (data && data.data && Array.isArray(data.data.generations)) raw = data.data.generations;
+    var byGen = Object.create(null);
+    for (var i = 0; i < raw.length; i++) {
+      var block = raw[i];
+      var gn = parseIntSafe(block.generation, 0);
+      if (gn < 1) continue;
+      var words = Array.isArray(block.words) ? block.words : [];
+      var arr = [];
+      for (var j = 0; j < words.length; j++) {
+        var w = words[j];
+        var wid = w && w.id != null ? parseIntSafe(w.id, 0) : 0;
+        if (!wid) continue;
+        arr.push({ id: wid, word: String(w.word || '').trim() });
+      }
+      if (arr.length) byGen[gn] = arr;
+    }
+    return byGen;
+  }
+
+  function unwrapRelationsPayload(d) {
+    if (!d) return [];
+    if (Array.isArray(d)) return d;
+    if (Array.isArray(d.data)) return d.data;
+    if (Array.isArray(d.relations)) return d.relations;
+    return [];
+  }
+
+  function buildAdjacencyFromRelations(relations, wordGen) {
+    var adj = Object.create(null);
+    for (var i = 0; i < relations.length; i++) {
+      var r = relations[i];
+      var fromId = parseIntSafe(r.from_word_id != null ? r.from_word_id : r.fromWordId, 0);
+      var toId = parseIntSafe(r.to_word_id != null ? r.to_word_id : r.toWordId, 0);
+      if (!fromId || !toId) continue;
+      var gFrom = wordGen[fromId];
+      var gTo = wordGen[toId];
+      if (!gFrom || !gTo || gTo !== gFrom + 1) continue;
+      if (!adj[fromId]) adj[fromId] = [];
+      adj[fromId].push(toId);
+    }
+    var k;
+    for (k in adj) {
+      if (!Object.prototype.hasOwnProperty.call(adj, k)) continue;
+      var seen = Object.create(null);
+      var lst = adj[k];
+      var out = [];
+      for (var t = 0; t < lst.length; t++) {
+        var id = lst[t];
+        if (seen[id]) continue;
+        seen[id] = true;
+        out.push(id);
+      }
+      adj[k] = out;
+    }
+    return adj;
+  }
+
+  function countDistinctRelationPaths(adj, gc, gen1Ids) {
+    var sigs = Object.create(null);
+    function walk(path) {
+      if (path.length === gc) {
+        sigs[path.join('|')] = true;
+        return;
+      }
+      var cur = path[path.length - 1];
+      var outs = adj[cur];
+      if (!outs || !outs.length) return;
+      for (var i = 0; i < outs.length; i++) {
+        walk(path.concat([outs[i]]));
+      }
+    }
+    if (!gen1Ids || !gen1Ids.length) return 0;
+    for (var s = 0; s < gen1Ids.length; s++) {
+      walk([gen1Ids[s]]);
+    }
+    return Object.keys(sigs).length;
+  }
+
+  function cartesianSentenceCount(byGen, gc) {
+    var n = 1;
+    for (var g = 1; g <= gc; g++) {
+      var row = byGen[g];
+      if (!row || !row.length) return 0;
+      n *= row.length;
+    }
+    return n;
+  }
+
+  function hideExamWordSentenceMetaRows() {
+    var els = document.querySelectorAll('.exam-meta-sentrows');
+    for (var i = 0; i < els.length; i++) els[i].hidden = true;
+    state.examAvailableSentences = 0;
+    state.examEmbeddableSentences = 0;
+  }
+
+  async function refreshExamWordSentenceMeta(task, gc, ref) {
+    var sAvail = $('examMetaAvailableSentences');
+    var sEmb = $('examMetaEmbeddableSentences');
+    var wlId = parseIntSafe(task && (task.word_list_id || task.wordListId), 0);
+    if (!wlId) {
+      hideExamWordSentenceMetaRows();
+      if (sAvail) sAvail.textContent = '—';
+      if (sEmb) sEmb.textContent = '—';
+      return;
+    }
+    try {
+      var wordsPayload = await api.getListWords(wlId);
+      var relPayload = [];
+      if (typeof api.getListWordRelations === 'function') {
+        try {
+          relPayload = await api.getListWordRelations(wlId);
+        } catch (eRel) {
+          relPayload = [];
+        }
+      }
+      var byGen = normalizeWordGenerationsByNum(wordsPayload);
+      var wordGen = Object.create(null);
+      var gk;
+      for (gk in byGen) {
+        if (!Object.prototype.hasOwnProperty.call(byGen, gk)) continue;
+        var gn = parseIntSafe(gk, 0);
+        var words = byGen[gk];
+        for (var wi = 0; wi < words.length; wi++) {
+          wordGen[words[wi].id] = gn;
+        }
+      }
+
+      var spatialCount =
+        typeof window.CELLAUTO_countSpatialGenerationPaths === 'function'
+          ? window.CELLAUTO_countSpatialGenerationPaths(ref, gc)
+          : 0;
+
+      var incomplete = false;
+      var r;
+      for (r = 1; r <= gc; r++) {
+        if (!byGen[r] || !byGen[r].length) incomplete = true;
+      }
+
+      /* Szó-reláció szerinti különálló mondat-útak száma (1…gc szavas láncok a listában) */
+      var wordSentenceCount = 0;
+      if (!incomplete) {
+        var rels = unwrapRelationsPayload(relPayload);
+        var adj = buildAdjacencyFromRelations(rels, wordGen);
+        var edgeCount = 0;
+        var ak;
+        for (ak in adj) {
+          if (!Object.prototype.hasOwnProperty.call(adj, ak)) continue;
+          edgeCount += (adj[ak] && adj[ak].length) | 0;
+        }
+        if (edgeCount === 0) {
+          wordSentenceCount = cartesianSentenceCount(byGen, gc);
+        } else {
+          var g1ids = byGen[1].map(function (w) {
+            return w.id;
+          });
+          wordSentenceCount = countDistinctRelationPaths(adj, gc, g1ids);
+        }
+      }
+
+      /* Lehetséges = szólista-reláció szerinti mondatútak száma, ha van rács-lánc.
+         Kinyerhető = GEN1…GENgc rács-láncok darabszáma a táblán. */
+      var wordPossible = spatialCount > 0 ? wordSentenceCount : 0;
+
+      state.examAvailableSentences = wordPossible;
+      state.examEmbeddableSentences = spatialCount;
+
+      if (sAvail) sAvail.textContent = String(wordPossible);
+      if (sEmb) sEmb.textContent = String(spatialCount);
+
+      var els = document.querySelectorAll('.exam-meta-sentrows');
+      for (var i = 0; i < els.length; i++) els[i].hidden = false;
+    } catch (e) {
+      hideExamWordSentenceMetaRows();
+      if (sAvail) sAvail.textContent = '—';
+      if (sEmb) sEmb.textContent = '—';
+    }
+  }
+
   function fillMeta(task, gc) {
     $('examMetaName').textContent = task.name || 'Feladat #' + task.id;
     $('examMetaAuthor').textContent = examAuthorName(task);
@@ -728,12 +911,32 @@
       if (lv && lvl !== lv) continue;
       out.push(r);
     }
-    return out;
+    var nf = $('examTaskNameFilter');
+    var q = nf && nf.value ? String(nf.value).trim().toLowerCase() : '';
+    if (!q) return out;
+    var outName = [];
+    for (var k = 0; k < out.length; k++) {
+      var rr = out[k];
+      var tt = rr.save;
+      var lab = formatTaskListLabel(rr, tt).toLowerCase();
+      var nm = (tt.name || '').toLowerCase();
+      var gn = (rr.groupName || '').toLowerCase();
+      var lvl = tt.level ? String(tt.level).toLowerCase() : '';
+      if (
+        lab.indexOf(q) >= 0 ||
+        nm.indexOf(q) >= 0 ||
+        gn.indexOf(q) >= 0 ||
+        lvl.indexOf(q) >= 0
+      )
+        outName.push(rr);
+    }
+    return outName;
   }
 
   function refreshExamTaskSelect() {
     var sel = $('examTaskSelect');
     if (!sel) return;
+    var prevVal = sel.value;
     sel.innerHTML = '';
     var list = collectFilteredTasks();
     if (!list.length) {
@@ -751,6 +954,7 @@
       o.textContent = formatTaskListLabel(r, t);
       sel.appendChild(o);
     }
+    if (prevVal && sel.querySelector('option[value="' + prevVal + '"]')) sel.value = prevVal;
   }
 
   function populateGroupFilter(groups) {
@@ -1158,6 +1362,7 @@
     state.examAutoNoWordlistEvalTriggered = false;
 
     fillMeta(task, gc);
+    await refreshExamWordSentenceMeta(task, gc, state.refMatrix);
     updateStatsDom();
 
     state.examSessionStarted = state.mode !== 'exam';
@@ -1412,7 +1617,7 @@
           good_cell: apiGoodCell,
           bad_cell: apiBadCell,
           unfilled_cell: apiUnfilledCell,
-          possible_sentence: 0,
+          possible_sentence: state.examAvailableSentences | 0,
           good_sentence: 0,
           bad_sentence: 0,
           completed_time: completedSecondsForApi(),
@@ -1426,6 +1631,19 @@
       } catch (e) {
         if (box) box.innerHTML += '<br><em>Értékelés mentése sikertelen: ' + (e.message || '') + '</em>';
       }
+    }
+  }
+
+  function restorePlayControlsAfterExam() {
+    var wm = $('word_mode');
+    if (wm) {
+      wm.value = 'select';
+      wm.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+    var modeEl = $('mode');
+    if (modeEl) {
+      modeEl.value = 'play';
+      modeEl.dispatchEvent(new Event('change', { bubbles: true }));
     }
   }
 
@@ -1449,10 +1667,18 @@
     $('sidebarPlayControls').hidden = false;
     $('examDrawLevelRadios').innerHTML = '';
 
+    hideExamWordSentenceMetaRows();
+    var sAv = $('examMetaAvailableSentences');
+    var sEm = $('examMetaEmbeddableSentences');
+    if (sAv) sAv.textContent = '—';
+    if (sEm) sEm.textContent = '—';
+
     var neigh = $('neighbors');
     var bs = $('boardSizeSelect');
     if (neigh) neigh.disabled = false;
     if (bs) bs.disabled = false;
+
+    restorePlayControlsAfterExam();
 
     if (api.getToken()) {
       $('saveLoadWrap').hidden = false;
@@ -1501,12 +1727,16 @@
           return;
         }
         if ($('examModalError')) $('examModalError').textContent = '';
+        var nameFiltOpen = $('examTaskNameFilter');
+        if (nameFiltOpen) nameFiltOpen.value = '';
         await loadAllTaskRows();
         openBackdrop('examBackdrop');
       });
 
     if (filt) filt.addEventListener('change', refreshExamTaskSelect);
     if (grpFilt) grpFilt.addEventListener('change', refreshExamTaskSelect);
+    var nameFilt = $('examTaskNameFilter');
+    if (nameFilt) nameFilt.addEventListener('input', refreshExamTaskSelect);
 
     if (cancel) cancel.addEventListener('click', function () { closeBackdrop('examBackdrop'); });
 

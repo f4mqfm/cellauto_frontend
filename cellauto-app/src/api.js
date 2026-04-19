@@ -265,6 +265,10 @@
     return apiFetch('GET', '/lists/' + id + '/words', null, true);
   }
 
+  async function getListWordRelations(id) {
+    return apiFetch('GET', '/lists/' + id + '/word-relations', null, true);
+  }
+
   async function getColorLists() {
     return apiFetch('GET', '/color-lists', null, true);
   }
@@ -380,6 +384,7 @@
     getPublicLists: getPublicLists,
     getList: getList,
     getListWords: getListWords,
+    getListWordRelations: getListWordRelations,
     getColorLists: getColorLists,
     getColorList: getColorList,
     unwrapArray: unwrapArray,
