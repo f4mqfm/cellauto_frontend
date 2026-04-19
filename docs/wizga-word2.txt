@@ -43,3 +43,20 @@ ha nem jo szot tett be es van gen uzenet beirva a kkor az incorrect gen message 
 ha nincsenek genercios uzenetek akkor ha jo: helyes szo kerul be
 egyebkent: helyteel szo kerult be
 
+Kierekeles:
+fentebb megvan a kinyerheto mondatok szama (kinyerheto mondatok szama)
+vegig gell menni a mondatokon amit a user kitoltott es ellenorizni, hogy megfelele a relacioknak es a hossznak
+ha igen akkor az jo pont (jo mondat)
+megkell nezni nahy ilyet talal (ossz_mondat)
+meg kell nezni hany egyedi mondat van (ami nem ismetlodik) (egyedi mondat)
+
+az eredmeny a mondatok kiertekelesinel:
+Teljesitheto mondatok szma: = kinyerheto mondatok szama
+Teljesitett egyedi mondatok szama: egyedi mondat
+A mondatokat fel kell sorolni ami egyedi egy listaba alaja
+ajaja a dupla mondatokat
+Telejesites: %
+ugy samoljuk ki, hogy egyedi mondat / kinyerheto mondatok szama / 100
+ezekt kell kiirni a kietkeleskor
+
+

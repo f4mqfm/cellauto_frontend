@@ -6,6 +6,15 @@ const CELL_ID_PAD = 3;
 function cellDomId(col, row) {
     return 'x' + String(col).padStart(CELL_ID_PAD, '0') + String(row).padStart(CELL_ID_PAD, '0');
 }
+
+window.CELLAUTO_cellDomId = cellDomId;
+
+window.CELLAUTO_getCellDisplayedWordText = function (col, row) {
+    var el = document.getElementById(cellDomId(col, row));
+    if (!el) return '';
+    var raw = el.textContent || el.innerText || '';
+    return String(raw).replace(/\u00a0/g, ' ').replace(/\s+/g, ' ').trim();
+};
 const maxCycle = 100;
 const currentCycle = 10;
 var matrix = Array.from({ length: maxRow }, () => Array.from({ length: maxCol }, () => 0));
@@ -1677,6 +1686,70 @@ window.CELLAUTO_countSpatialGenerationPaths = function (ref, gc) {
         }
     }
     return total;
+};
+
+/**
+ * Az összes GEN1 → … → GEN gc szomszéd-lánc (cella-pozíciók listája), ugyanazzal a szabállyal,
+ * mint a CELLAUTO_countSpatialGenerationPaths darabszáma.
+ */
+window.CELLAUTO_enumerateSpatialGenerationPaths = function (ref, gc) {
+    var paths = [];
+    if (!ref || gc < 1) return paths;
+    var vr = viewRow;
+    var vc = viewCol;
+    var bt = board;
+    var neighEl = document.getElementById('neighbors');
+    var method = neighEl ? neighEl.value : 'side';
+
+    if (method === 'life' || method === 'life_hex') return paths;
+
+    function validCell(x, y) {
+        if (x < 0 || y < 0 || x >= vc || y >= vr) return false;
+        if (bt === 'hex' && y % 2 !== 0 && x === vc - 1) return false;
+        return true;
+    }
+
+    function eachNeighbor(col, row, fn) {
+        if (method === 'side') {
+            var side = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+            for (var i = 0; i < side.length; i++) fn(col + side[i][0], row + side[i][1]);
+        } else if (method === 'apex') {
+            var apex = [[-1, -1], [1, 1], [-1, 1], [1, -1]];
+            for (var j = 0; j < apex.length; j++) fn(col + apex[j][0], row + apex[j][1]);
+        } else if (method === 'hex') {
+            var offsetsEven = [[0, -1], [1, 0], [0, 1], [-1, 0], [-1, -1], [-1, 1]];
+            var offsetsOdd = [[0, -1], [1, 0], [0, 1], [-1, 0], [1, -1], [1, 1]];
+            var offs = row % 2 === 0 ? offsetsEven : offsetsOdd;
+            for (var k = 0; k < offs.length; k++) fn(col + offs[k][0], row + offs[k][1]);
+        }
+    }
+
+    function dfs(cx, cy, g, curPath) {
+        curPath.push({ x: cx, y: cy });
+        if (g === gc) {
+            paths.push(curPath.slice());
+            curPath.pop();
+            return;
+        }
+        var want = g + 1;
+        eachNeighbor(cx, cy, function (xx, yy) {
+            if (!validCell(xx, yy)) return;
+            var cell = ref[xx] && ref[xx][yy] !== undefined ? ref[xx][yy] | 0 : 0;
+            if (cell !== want) return;
+            dfs(xx, yy, want, curPath);
+        });
+        curPath.pop();
+    }
+
+    for (var y = 0; y < vr; y++) {
+        var xMax = vc - (bt === 'hex' && y % 2 !== 0 ? 1 : 0);
+        for (var x = 0; x < xMax; x++) {
+            var v = ref[x] && ref[x][y] !== undefined ? ref[x][y] | 0 : 0;
+            if (v !== 1) continue;
+            dfs(x, y, 1, []);
+        }
+    }
+    return paths;
 };
 
 /**

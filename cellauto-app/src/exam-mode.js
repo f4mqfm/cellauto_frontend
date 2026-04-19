@@ -283,7 +283,7 @@
   async function preloadPracticeWordGraph() {
     state.practiceWordGraph = null;
     var lid = state.taskWordListId | 0;
-    if (!lid || state.mode !== 'practice' || !state.examWordSentencePhase) return;
+    if (!lid || !state.examWordSentencePhase) return;
     try {
       var wordsPayload = await api.getListWords(lid);
       var relPayload = [];
@@ -400,9 +400,9 @@
   window.CELLAUTO_isPracticeWordSentencePhase = function () {
     return !!(
       state.active &&
-      state.mode === 'practice' &&
       state.examWordSentencePhase &&
-      (state.taskWordListId | 0)
+      (state.taskWordListId | 0) &&
+      (state.mode === 'practice' || state.mode === 'exam')
     );
   };
 
@@ -1460,6 +1460,11 @@
     state.examAutoWordTriggered = true;
     var gate = $('examWordSentenceGate');
     if (gate) gate.hidden = true;
+    /* Nincs kitöltendő cella (total_good_cell === 0): nem volt cella feladat, ezért nincs átvezető overlay. */
+    if ((state.possible | 0) === 0) {
+      activateWordSentenceMode();
+      return;
+    }
     showExamCellToWordAnimation(function () {
       activateWordSentenceMode();
     });
@@ -1748,6 +1753,9 @@
     $('examEvaluationBox').hidden = true;
     $('examEvaluationBox').textContent = '';
     $('examFinishWrap').hidden = true;
+    var examEvalActions = $('sidebarExamPanel') &&
+      $('sidebarExamPanel').querySelector('.exam-eval-actions');
+    if (examEvalActions) examEvalActions.hidden = false;
     var evReset = $('examBtnEvaluate');
     if (state.mode === 'exam') {
       if (evReset) {
@@ -1796,6 +1804,259 @@
     return Math.max(0, state.timeLimit - state.examRemaining);
   }
 
+  function wordLabelForIdFromGraph(graph, wid) {
+    var id = parseIntSafe(wid, 0);
+    if (!id || !graph || !graph.byGen) return '';
+    var maxG = parseIntSafe(graph.gc, 1);
+    var g;
+    for (g = 1; g <= maxG; g++) {
+      var words = graph.byGen[g];
+      if (!words) continue;
+      for (var i = 0; i < words.length; i++) {
+        if (words[i].id === id) return String(words[i].word || '').trim();
+      }
+    }
+    return '';
+  }
+
+  function resolveWordIdForSentenceEval(col, row, gen) {
+    var map = state.practiceCellWordIds;
+    if (map && map[col + ',' + row]) return map[col + ',' + row];
+    var txt =
+      typeof window.CELLAUTO_getCellDisplayedWordText === 'function'
+        ? window.CELLAUTO_getCellDisplayedWordText(col, row)
+        : '';
+    return practiceWordIdFromLabel(txt, gen);
+  }
+
+  function sentenceChainWordIdsValid(ids, graph) {
+    if (!ids || !ids.length || !graph) return false;
+    var ec = graph.edgeCount | 0;
+    var i;
+    if (ec === 0) {
+      for (i = 0; i < ids.length; i++) if (!(parseIntSafe(ids[i], 0) > 0)) return false;
+      return true;
+    }
+    var adj = graph.adj || {};
+    for (i = 0; i < ids.length - 1; i++) {
+      var outs = adj[ids[i]] || [];
+      if (outs.indexOf(ids[i + 1]) < 0) return false;
+    }
+    return true;
+  }
+
+  async function ensureWordGraphForSentenceEvaluation() {
+    var lid = state.taskWordListId | 0;
+    if (!lid) return null;
+    var gcPath =
+      parseIntSafe(state.taskGenCount, 0) ||
+      parseIntSafe(state.taskRow && (state.taskRow.generations_count || state.taskRow.generationsCount), 0) ||
+      5;
+    try {
+      var wordsPayload = await api.getListWords(lid);
+      var relPayload = [];
+      if (typeof api.getListWordRelations === 'function') {
+        try {
+          relPayload = await api.getListWordRelations(lid);
+        } catch (eR) {}
+      }
+      var msgPayload = null;
+      if (typeof api.getListWordGenMessages === 'function') {
+        try {
+          msgPayload = await api.getListWordGenMessages(lid);
+        } catch (eM) {}
+      }
+      state.practiceWordGraph = buildPracticeWordGraph(wordsPayload, relPayload, msgPayload, gcPath);
+      return state.practiceWordGraph;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  async function computeSentenceEvaluationSummary(refMatrix) {
+    var gc = parseIntSafe(state.taskGenCount, 0);
+    var wlId = state.taskWordListId | 0;
+    if (!wlId || gc < 1 || !refMatrix) return null;
+    var graph = await ensureWordGraphForSentenceEvaluation();
+    if (!graph) return null;
+    var paths =
+      typeof window.CELLAUTO_enumerateSpatialGenerationPaths === 'function'
+        ? window.CELLAUTO_enumerateSpatialGenerationPaths(refMatrix, gc)
+        : [];
+    var embeddable = paths.length;
+    var validInstances = [];
+    var wrongInstances = [];
+    var p;
+    for (p = 0; p < paths.length; p++) {
+      var path = paths[p];
+      if (!path || path.length !== gc) continue;
+      var ids = [];
+      var step;
+      for (step = 0; step < gc; step++) {
+        var pt = path[step];
+        var gen = step + 1;
+        var wid = resolveWordIdForSentenceEval(pt.x, pt.y, gen);
+        ids.push(wid | 0);
+      }
+      var full = true;
+      var ii;
+      for (ii = 0; ii < ids.length; ii++) {
+        if (!(ids[ii] > 0)) {
+          full = false;
+          break;
+        }
+      }
+      var chainOk = full && sentenceChainWordIdsValid(ids, graph);
+      if (chainOk) {
+        validInstances.push(ids);
+        continue;
+      }
+      /* Hibás mondat: végig ki van töltve, de a relációs lánc nem helyes (részleges útvonalak nem számítanak). */
+      if (full) wrongInstances.push(ids);
+    }
+    var wrongSentencePaths = wrongInstances.length;
+    var totalValid = validInstances.length;
+    var sigMap = Object.create(null);
+    for (var vi = 0; vi < validInstances.length; vi++) {
+      var sig = validInstances[vi].join('|');
+      sigMap[sig] = (sigMap[sig] || 0) + 1;
+    }
+    var uniqKeys = Object.keys(sigMap);
+    var uniqueCount = uniqKeys.length;
+    var duplicateValidCount = Math.max(0, totalValid - uniqueCount);
+    var pct = embeddable > 0 ? Math.round((uniqueCount / embeddable) * 100) : null;
+
+    function fmtSentence(idsArr) {
+      var parts = [];
+      for (var ii = 0; ii < idsArr.length; ii++) {
+        parts.push(wordLabelForIdFromGraph(graph, idsArr[ii]) || '?');
+      }
+      return parts.join(' → ');
+    }
+
+    uniqKeys.sort();
+    var listHtml = '';
+    for (var li = 0; li < uniqKeys.length; li++) {
+      var sigKey = uniqKeys[li];
+      var idsArr = sigKey.split('|').map(function (x) {
+        return parseIntSafe(x, 0);
+      });
+      var cnt = sigMap[sigKey];
+      listHtml +=
+        '<li class="exam-eval-sentence-li">' +
+        escapeExamSummaryHtml(fmtSentence(idsArr)) +
+        (cnt > 1 ? ' <span class="exam-eval-sentence-dup">(×' + cnt + ')</span>' : '') +
+        '</li>';
+    }
+
+    var wrongSigMap = Object.create(null);
+    for (var wj = 0; wj < wrongInstances.length; wj++) {
+      var wsig = wrongInstances[wj].join('|');
+      wrongSigMap[wsig] = (wrongSigMap[wsig] || 0) + 1;
+    }
+    var wrongKeys = Object.keys(wrongSigMap);
+    wrongKeys.sort();
+    var wrongListHtml = '';
+    for (var wk = 0; wk < wrongKeys.length; wk++) {
+      var wSigKey = wrongKeys[wk];
+      var wIdsArr = wSigKey.split('|').map(function (x) {
+        return parseIntSafe(x, 0);
+      });
+      var wCnt = wrongSigMap[wSigKey];
+      wrongListHtml +=
+        '<li class="exam-eval-sentence-li">' +
+        escapeExamSummaryHtml(fmtSentence(wIdsArr)) +
+        (wCnt > 1 ? ' <span class="exam-eval-sentence-dup">(×' + wCnt + ')</span>' : '') +
+        '</li>';
+    }
+
+    var srLines = [];
+    srLines.push('Egyedi mondatok:');
+    if (uniqKeys.length) {
+      for (var sri = 0; sri < uniqKeys.length; sri++) {
+        var srSig = uniqKeys[sri];
+        var srIds = srSig.split('|').map(function (x) {
+          return parseIntSafe(x, 0);
+        });
+        var srCnt = sigMap[srSig];
+        srLines.push(
+          fmtSentence(srIds) + (srCnt > 1 ? ' (×' + srCnt + ')' : '')
+        );
+      }
+    } else {
+      srLines.push('Nincs egyedi mondat a listában.');
+    }
+    srLines.push('Helytelen mondatok listája:');
+    if (wrongKeys.length) {
+      for (var srj = 0; srj < wrongKeys.length; srj++) {
+        var wrSig = wrongKeys[srj];
+        var wrIds = wrSig.split('|').map(function (x) {
+          return parseIntSafe(x, 0);
+        });
+        var wrCnt = wrongSigMap[wrSig];
+        srLines.push(
+          fmtSentence(wrIds) + (wrCnt > 1 ? ' (×' + wrCnt + ')' : '')
+        );
+      }
+    } else {
+      srLines.push('Nincs helytelen mondat.');
+    }
+    var sentenceResultText = srLines.join('\n');
+
+    var block =
+      '<div class="exam-eval-sentence" role="region" aria-label="Mondatok kiértékelése">' +
+      '<h4 class="exam-eval-sentence-title">Mondatok kiértékelése</h4>' +
+      '<p class="exam-eval-sentence-hero">' +
+      '<span class="exam-eval-sentence-hero-label">Teljesítés:</span> ' +
+      '<span class="exam-eval-sentence-hero-pct">' +
+      (pct !== null ? pct + '%' : '—') +
+      '</span></p>' +
+      '<div class="exam-eval-sentence-stats">' +
+      '<div class="exam-eval-sentence-stats__row">' +
+      '<span class="exam-eval-sentence-stats__label">Kinyerhető mondatok száma:</span>' +
+      '<span class="exam-eval-sentence-stats__num">' +
+      embeddable +
+      '</span></div>' +
+      '<div class="exam-eval-sentence-stats__row">' +
+      '<span class="exam-eval-sentence-stats__label">Egyedi mondatok száma:</span>' +
+      '<span class="exam-eval-sentence-stats__num exam-eval-num exam-eval-num--good">' +
+      uniqueCount +
+      '</span></div>' +
+      '<div class="exam-eval-sentence-stats__row">' +
+      '<span class="exam-eval-sentence-stats__label">Dupla mondatok száma:</span>' +
+      '<span class="exam-eval-sentence-stats__num">' +
+      duplicateValidCount +
+      '</span></div>' +
+      '<div class="exam-eval-sentence-stats__row">' +
+      '<span class="exam-eval-sentence-stats__label">Helytelen mondatok száma:</span>' +
+      '<span class="exam-eval-sentence-stats__num exam-eval-num exam-eval-num--bad">' +
+      wrongSentencePaths +
+      '</span></div>' +
+      '</div>' +
+      (listHtml
+        ? '<div class="exam-eval-sentence-list-wrap"><div class="exam-eval-sentence-list-label">Egyedi mondatok:</div><ul class="exam-eval-sentence-ul">' +
+          listHtml +
+          '</ul></div>'
+        : '<p class="exam-eval-sentence-none">Nincs egyedi mondat a listában.</p>') +
+      (wrongListHtml
+        ? '<div class="exam-eval-sentence-list-wrap exam-eval-sentence-list-wrap--wrong"><div class="exam-eval-sentence-list-label">Helytelen mondatok listája:</div><ul class="exam-eval-sentence-ul exam-eval-sentence-ul--wrong">' +
+          wrongListHtml +
+          '</ul></div>'
+        : '') +
+      '</div>';
+
+    return {
+      html: block,
+      embeddable: embeddable,
+      totalValid: totalValid,
+      uniqueValid: uniqueCount,
+      duplicateValid: duplicateValidCount,
+      wrongSentences: wrongSentencePaths,
+      pct: pct,
+      sentenceResultText: sentenceResultText,
+    };
+  }
+
   async function onEvaluate() {
     if (!state.active || state.evaluationDone) return;
     if (state.mode === 'exam' && !state.examSessionStarted) return;
@@ -1810,42 +2071,115 @@
       noteText = '';
     }
 
-    var diffStats =
-      typeof window.CELLAUTO_paintMatrixDiffOverlay === 'function'
-        ? window.CELLAUTO_paintMatrixDiffOverlay(state.refMatrix)
-        : null;
-
     var totalPossible = state.possible | 0;
-    var completedCorrect =
-      typeof window.CELLAUTO_countCorrectExamFillCells === 'function'
-        ? window.CELLAUTO_countCorrectExamFillCells(state.refMatrix, state.frozenCells)
-        : Math.min(diffStats ? diffStats.ok : 0, totalPossible);
-    if (totalPossible >= 0) {
-      completedCorrect = Math.min(completedCorrect | 0, totalPossible);
+    var skipCellSummary = totalPossible === 0;
+
+    var sentenceEval = null;
+    if ((state.taskWordListId | 0) && (state.taskGenCount | 0) >= 1) {
+      try {
+        sentenceEval = await computeSentenceEvaluationSummary(state.refMatrix);
+      } catch (eSen) {}
     }
-    var wrongMarked = diffStats ? diffStats.error + diffStats.plus : 0;
-    var unfilled = diffStats ? diffStats.minus : 0;
+
+    if (skipCellSummary && !(sentenceEval && sentenceEval.html)) {
+      var boxSkip = $('examEvaluationBox');
+      if (boxSkip) {
+        boxSkip.innerHTML = '';
+        boxSkip.hidden = true;
+      }
+      var fwSkip = $('examFinishWrap');
+      if (fwSkip) fwSkip.hidden = false;
+      var evSkip = $('examBtnEvaluate');
+      if (evSkip) {
+        evSkip.disabled = true;
+        evSkip.setAttribute('aria-disabled', 'true');
+      }
+      if (state.mode === 'exam' && state.taskSaveId) {
+        try {
+          var filledBoard0 =
+            typeof window.CELLAUTO_captureEvaluationFieldBoards === 'function'
+              ? window.CELLAUTO_captureEvaluationFieldBoards()
+              : null;
+          if (!filledBoard0 || typeof filledBoard0 !== 'object') {
+            filledBoard0 = { schemaVersion: 1, board: 'square', cells: [] };
+          }
+          var evalPayload0 = {
+            date: formatDateTimeSql(),
+            note: noteText,
+            filled_board: filledBoard0,
+            total_good_cell: 0,
+            good_cell: 0,
+            bad_cell: 0,
+            unfilled_cell: 0,
+            possible_sentence: 0,
+            good_sentence: 0,
+            bad_sentence: 0,
+            duplicate_sentence: 0,
+            sentence_result: '',
+            completed_time: completedSecondsForApi(),
+          };
+          var evalRaw0 = await api.createTaskEvaluation(state.taskSaveId, evalPayload0);
+          var evEntity0 = unwrapEntity(evalRaw0);
+          var evId0 = evEntity0 && evEntity0.id != null ? parseIntSafe(evEntity0.id, 0) : 0;
+          if (evId0) state.savedEvaluationId = evId0;
+          state.savedEvaluationApiPayload = JSON.parse(JSON.stringify(evalPayload0));
+          prepareExamNotesUiAfterEval();
+        } catch (e0) {
+          if (typeof window.showToast === 'function') {
+            window.showToast(
+              'Értékelés mentése sikertelen: ' + (e0.message || ''),
+              4200
+            );
+          }
+        }
+      }
+      return;
+    }
+
+    var diffStats = null;
+    var completedCorrect = 0;
+    var wrongMarked = 0;
+    var unfilled = 0;
+    if (!skipCellSummary) {
+      diffStats =
+        typeof window.CELLAUTO_paintMatrixDiffOverlay === 'function'
+          ? window.CELLAUTO_paintMatrixDiffOverlay(state.refMatrix)
+          : null;
+      completedCorrect =
+        typeof window.CELLAUTO_countCorrectExamFillCells === 'function'
+          ? window.CELLAUTO_countCorrectExamFillCells(state.refMatrix, state.frozenCells)
+          : Math.min(diffStats ? diffStats.ok : 0, totalPossible);
+      if (totalPossible >= 0) {
+        completedCorrect = Math.min(completedCorrect | 0, totalPossible);
+      }
+      wrongMarked = diffStats ? diffStats.error + diffStats.plus : 0;
+      unfilled = diffStats ? diffStats.minus : 0;
+    }
     var pctNumerator = completedCorrect - wrongMarked - unfilled;
     var pct =
       totalPossible > 0 ? Math.round((pctNumerator / totalPossible) * 100) : null;
     var isPerfect =
-      !!diffStats && diffStats.error + diffStats.plus + diffStats.minus === 0;
+      !skipCellSummary &&
+      !!diffStats &&
+      diffStats.error + diffStats.plus + diffStats.minus === 0;
 
     var summary = '<h4 class="exam-eval-title">Összegzés</h4>';
-    if (isPerfect) {
+    if (!skipCellSummary) {
+      if (isPerfect) {
+        summary +=
+          '<p class="exam-eval-grats exam-eval-grats--replay" role="status" tabindex="0" title="Újra a táblán: egér fölé vagy kattintás">' +
+          'Gratulálok!!!</p>';
+      }
       summary +=
-        '<p class="exam-eval-grats exam-eval-grats--replay" role="status" tabindex="0" title="Újra a táblán: egér fölé vagy kattintás">' +
-        'Gratulálok!!!</p>';
+        '<p class="exam-eval-hero-line">Teljesítés: <span class="exam-eval-num">' +
+        (pct !== null ? pct + '%' : '—') +
+        '</span></p>';
     }
-    summary +=
-      '<p class="exam-eval-hero-line">Teljesítés: <span class="exam-eval-num">' +
-      (pct !== null ? pct + '%' : '—') +
-      '</span></p>';
     summary +=
       '<p class="exam-eval-meta-line">Teljesítési idő: <span class="exam-eval-num">' +
       formatSeconds(completedSecondsForApi()) +
       '</span></p>';
-    if (noteText) {
+    if (!skipCellSummary && noteText) {
       summary +=
         '<div class="exam-eval-teacher-note">' +
         '<div class="exam-eval-teacher-note-label">Megjegyzés a tanárnak</div>' +
@@ -1853,74 +2187,81 @@
         escapeExamSummaryHtml(noteText).replace(/\n/g, '<br>') +
         '</div></div>';
     }
-    summary += '<div class="exam-eval-stats">';
-    summary +=
-      '<div class="exam-eval-stats-table" role="group" aria-label="Összesítő cellaszámok">' +
-      '<div class="exam-eval-stat-cell">' +
-      '<div class="exam-eval-stat-label">Összes teljesíthető cellák száma</div>' +
-      '<span class="exam-eval-num">' +
-      totalPossible +
-      '</span>' +
-      '</div>' +
-      '<div class="exam-eval-stat-cell">' +
-      '<div class="exam-eval-stat-label">Teljesített cellák száma</div>' +
-      '<span class="exam-eval-num exam-eval-num--good">' +
-      completedCorrect +
-      '</span>' +
-      '</div>' +
-      '<div class="exam-eval-stat-cell">' +
-      '<div class="exam-eval-stat-label">Rosszul bejelölt cellák száma</div>' +
-      '<span class="exam-eval-num exam-eval-num--bad">' +
-      wrongMarked +
-      '</span>' +
-      '</div>' +
-      '<div class="exam-eval-stat-cell">' +
-      '<div class="exam-eval-stat-label">Be nem jelölt cellák száma</div>' +
-      '<span class="exam-eval-num exam-eval-num--bad">' +
-      unfilled +
-      '</span>' +
-      '</div>' +
-      '</div>';
-    summary += '</div>';
-    summary +=
-      '<div class="exam-eval-formula" role="note">' +
-      '<div class="exam-eval-formula-heading">Teljesítés %</div>' +
-      '<div class="exam-eval-formula-row">' +
-      '<span class="exam-eval-formula-eq">=</span>' +
-      '<span class="exam-eval-fraction">' +
-      '<span class="exam-eval-fraction-num">good_cell − bad_cell − unfilled_cell</span>' +
-      '<span class="exam-eval-fraction-bar"></span>' +
-      '<span class="exam-eval-fraction-den">total_good_cell</span>' +
-      '</span>' +
-      '<span class="exam-eval-formula-operator"> × 100</span>' +
-      '</div>' +
-      '<div class="exam-eval-formula-row exam-eval-formula-row--values">' +
-      '<span class="exam-eval-formula-eq">=</span>' +
-      '<span class="exam-eval-fraction exam-eval-fraction--values">' +
-      '<span class="exam-eval-fraction-num">' +
-      completedCorrect +
-      ' − ' +
-      wrongMarked +
-      ' − ' +
-      unfilled +
-      '</span>' +
-      '<span class="exam-eval-fraction-bar"></span>' +
-      '<span class="exam-eval-fraction-den">' +
-      (totalPossible > 0 ? totalPossible : '—') +
-      '</span>' +
-      '</span>' +
-      '<span class="exam-eval-formula-operator"> × 100' +
-      (pct !== null ? ' = <strong class="exam-eval-pct-result">' + pct + '%</strong>' : '') +
-      '</span>' +
-      '</div>' +
-      '</div>';
-    summary +=
-      '<div class="exam-eval-legend-list"><div class="exam-eval-legend-title">Jelölések a táblán</div>' +
-      '<p class="exam-eval-legend-row"><span class="exam-eval-mark exam-eval-mark--x" aria-hidden="true">×</span> rossz generáció</p>' +
-      '<p class="exam-eval-legend-row"><span class="exam-eval-mark exam-eval-mark--plus" aria-hidden="true">+</span> felesleges kitöltés</p>' +
-      '<p class="exam-eval-legend-row"><span class="exam-eval-mark exam-eval-mark--m" aria-hidden="true">m</span> hiányzó sejt</p>' +
-      '<p class="exam-eval-legend-row"><span class="exam-eval-mark exam-eval-mark--ok" aria-hidden="true"></span> Helyes kitöltés</p>' +
-      '</div>';
+    if (!skipCellSummary) {
+      summary += '<div class="exam-eval-stats">';
+      summary +=
+        '<div class="exam-eval-stats-table" role="group" aria-label="Összesítő cellaszámok">' +
+        '<div class="exam-eval-stat-cell">' +
+        '<div class="exam-eval-stat-label">Összes teljesíthető cellák száma</div>' +
+        '<span class="exam-eval-num">' +
+        totalPossible +
+        '</span>' +
+        '</div>' +
+        '<div class="exam-eval-stat-cell">' +
+        '<div class="exam-eval-stat-label">Teljesített cellák száma</div>' +
+        '<span class="exam-eval-num exam-eval-num--good">' +
+        completedCorrect +
+        '</span>' +
+        '</div>' +
+        '<div class="exam-eval-stat-cell">' +
+        '<div class="exam-eval-stat-label">Rosszul bejelölt cellák száma</div>' +
+        '<span class="exam-eval-num exam-eval-num--bad">' +
+        wrongMarked +
+        '</span>' +
+        '</div>' +
+        '<div class="exam-eval-stat-cell">' +
+        '<div class="exam-eval-stat-label">Be nem jelölt cellák száma</div>' +
+        '<span class="exam-eval-num exam-eval-num--bad">' +
+        unfilled +
+        '</span>' +
+        '</div>' +
+        '</div>';
+      summary += '</div>';
+      summary +=
+        '<div class="exam-eval-formula" role="note">' +
+        '<div class="exam-eval-formula-heading">Teljesítés %</div>' +
+        '<div class="exam-eval-formula-row">' +
+        '<span class="exam-eval-formula-eq">=</span>' +
+        '<span class="exam-eval-fraction">' +
+        '<span class="exam-eval-fraction-num">good_cell − bad_cell − unfilled_cell</span>' +
+        '<span class="exam-eval-fraction-bar"></span>' +
+        '<span class="exam-eval-fraction-den">total_good_cell</span>' +
+        '</span>' +
+        '<span class="exam-eval-formula-operator"> × 100</span>' +
+        '</div>' +
+        '<div class="exam-eval-formula-row exam-eval-formula-row--values">' +
+        '<span class="exam-eval-formula-eq">=</span>' +
+        '<span class="exam-eval-fraction exam-eval-fraction--values">' +
+        '<span class="exam-eval-fraction-num">' +
+        completedCorrect +
+        ' − ' +
+        wrongMarked +
+        ' − ' +
+        unfilled +
+        '</span>' +
+        '<span class="exam-eval-fraction-bar"></span>' +
+        '<span class="exam-eval-fraction-den">' +
+        (totalPossible > 0 ? totalPossible : '—') +
+        '</span>' +
+        '</span>' +
+        '<span class="exam-eval-formula-operator"> × 100' +
+        (pct !== null ? ' = <strong class="exam-eval-pct-result">' + pct + '%</strong>' : '') +
+        '</span>' +
+        '</div>' +
+        '</div>';
+    }
+    if (sentenceEval && sentenceEval.html) {
+      summary += sentenceEval.html;
+    }
+    if (!skipCellSummary) {
+      summary +=
+        '<div class="exam-eval-legend-list"><div class="exam-eval-legend-title">Jelölések a táblán</div>' +
+        '<p class="exam-eval-legend-row"><span class="exam-eval-mark exam-eval-mark--x" aria-hidden="true">×</span> rossz generáció</p>' +
+        '<p class="exam-eval-legend-row"><span class="exam-eval-mark exam-eval-mark--plus" aria-hidden="true">+</span> felesleges kitöltés</p>' +
+        '<p class="exam-eval-legend-row"><span class="exam-eval-mark exam-eval-mark--m" aria-hidden="true">m</span> hiányzó sejt</p>' +
+        '<p class="exam-eval-legend-row"><span class="exam-eval-mark exam-eval-mark--ok" aria-hidden="true"></span> Helyes kitöltés</p>' +
+        '</div>';
+    }
 
     var box = $('examEvaluationBox');
     var fw = $('examFinishWrap');
@@ -1974,9 +2315,14 @@
           good_cell: apiGoodCell,
           bad_cell: apiBadCell,
           unfilled_cell: apiUnfilledCell,
-          possible_sentence: state.examAvailableSentences | 0,
-          good_sentence: 0,
-          bad_sentence: 0,
+          possible_sentence: sentenceEval ? sentenceEval.embeddable | 0 : 0,
+          good_sentence: sentenceEval ? sentenceEval.uniqueValid | 0 : 0,
+          bad_sentence: sentenceEval ? sentenceEval.wrongSentences | 0 : 0,
+          duplicate_sentence: sentenceEval ? sentenceEval.duplicateValid | 0 : 0,
+          sentence_result:
+            sentenceEval && sentenceEval.sentenceResultText
+              ? sentenceEval.sentenceResultText
+              : '',
           completed_time: completedSecondsForApi(),
         };
         var evalRaw = await api.createTaskEvaluation(state.taskSaveId, evalPayload);
