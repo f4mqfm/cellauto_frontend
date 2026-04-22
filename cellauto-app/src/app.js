@@ -336,7 +336,17 @@
     var sel = $('colorListSelect');
     if (!wrap || !sel) return;
 
-    var lists = await api.getColorLists();
+    var ownListsRaw = await api.getColorLists();
+    var ownLists = unwrapListArray(ownListsRaw);
+    var publicLists = [];
+    if (typeof api.getPublicColorLists === 'function') {
+      try {
+        publicLists = await api.getPublicColorLists();
+      } catch (e) {
+        publicLists = [];
+      }
+    }
+    var lists = mergeUniqueLists(ownLists, publicLists);
     if (!lists || !lists.length) {
       wrap.hidden = true;
       applyDynamicColors(DEFAULT_HEX_COLORS);
@@ -415,6 +425,37 @@
     });
   }
 
+  function resetBoardToLoggedOutDefaults() {
+    var sizeSel = $('boardSizeSelect');
+    if (sizeSel) {
+      sizeSel.value = '30';
+      sizeSel.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+
+    var zoomSel = $('boardZoomSelect');
+    if (zoomSel) {
+      zoomSel.value = '1';
+      zoomSel.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+
+    var neighborsSel = $('neighbors');
+    if (neighborsSel) {
+      neighborsSel.value = 'side';
+      neighborsSel.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+
+    if (typeof window.resetMatrix === 'function') {
+      window.resetMatrix(0);
+    } else if (typeof window.reDrawTable === 'function') {
+      window.reDrawTable();
+    }
+
+    try {
+      localStorage.setItem('cellauto_board_size', '30');
+      localStorage.setItem('cellauto_board_zoom', '1');
+    } catch (e) {}
+  }
+
   /**
    * @param {{ userFallback?: object }} opts
    */
@@ -440,6 +481,13 @@
     }
 
     var loggedIn = !!api.getToken();
+    if (!loggedIn) {
+      var examPanel = $('sidebarExamPanel');
+      if (examPanel && !examPanel.hidden && typeof window.CELLAUTO_exitExamMode === 'function') {
+        window.CELLAUTO_exitExamMode();
+      }
+      resetBoardToLoggedOutDefaults();
+    }
     setWordHint(loggedIn);
 
     if (api.getToken()) {

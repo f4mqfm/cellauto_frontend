@@ -277,6 +277,19 @@
     return apiFetch('GET', '/color-lists', null, true);
   }
 
+  async function getPublicColorLists() {
+    var candidates = ['/color-lists/public', '/public-color-lists', '/color-lists?scope=public', '/color-lists?public=1'];
+    for (var i = 0; i < candidates.length; i++) {
+      try {
+        var d = await apiFetch('GET', candidates[i], null, true);
+        return unwrapArray(d);
+      } catch (e) {
+        if (e && (e.status === 404 || e.status === 405)) continue;
+      }
+    }
+    return [];
+  }
+
   async function getColorList(id) {
     return apiFetch('GET', '/color-lists/' + id, null, true);
   }
@@ -331,8 +344,23 @@
   }
 
   async function getTaskSaveGroups() {
-    var d = await apiFetch('GET', '/task-save-groups', null, true);
-    return unwrapArray(d);
+    var candidates = [
+      '/task-save-groups?scope=all',
+      '/task-save-groups?all=1',
+      '/task-save-groups/all',
+      '/task-save-groups',
+    ];
+    for (var i = 0; i < candidates.length; i++) {
+      try {
+        var d = await apiFetch('GET', candidates[i], null, true);
+        return unwrapArray(d);
+      } catch (e) {
+        if (e && (e.status === 404 || e.status === 405 || e.status === 422)) continue;
+        if (i < candidates.length - 1 && e && e.status === 403) continue;
+        throw e;
+      }
+    }
+    return [];
   }
 
   async function createTaskSaveGroup(body) {
@@ -340,8 +368,23 @@
   }
 
   async function getTaskSaves(groupId) {
-    var d = await apiFetch('GET', '/task-save-groups/' + groupId + '/saves', null, true);
-    return unwrapArray(d);
+    var candidates = [
+      '/task-save-groups/' + groupId + '/saves?scope=all',
+      '/task-save-groups/' + groupId + '/saves?all=1',
+      '/task-save-groups/' + groupId + '/all-saves',
+      '/task-save-groups/' + groupId + '/saves',
+    ];
+    for (var i = 0; i < candidates.length; i++) {
+      try {
+        var d = await apiFetch('GET', candidates[i], null, true);
+        return unwrapArray(d);
+      } catch (e) {
+        if (e && (e.status === 404 || e.status === 405 || e.status === 422)) continue;
+        if (i < candidates.length - 1 && e && e.status === 403) continue;
+        throw e;
+      }
+    }
+    return [];
   }
 
   async function createTaskSave(groupId, body) {
@@ -354,6 +397,39 @@
 
   async function getTaskSave(groupId, saveId) {
     return apiFetch('GET', '/task-save-groups/' + groupId + '/saves/' + saveId, null, true);
+  }
+
+  async function getTaskSaveById(saveId) {
+    var candidates = ['/task-saves/' + saveId, '/task-save/' + saveId];
+    for (var i = 0; i < candidates.length; i++) {
+      try {
+        return await apiFetch('GET', candidates[i], null, true);
+      } catch (e) {
+        if (e && (e.status === 404 || e.status === 405)) continue;
+        throw e;
+      }
+    }
+    throw new Error('Task mentés nem található.');
+  }
+
+  async function getAllTaskSaves() {
+    var candidates = [
+      '/task-saves?scope=all',
+      '/task-saves?all=1',
+      '/task-saves',
+      '/task-save-groups/all/saves',
+    ];
+    for (var i = 0; i < candidates.length; i++) {
+      try {
+        var d = await apiFetch('GET', candidates[i], null, true);
+        return unwrapArray(d);
+      } catch (e) {
+        if (e && (e.status === 404 || e.status === 405 || e.status === 422)) continue;
+        if (i < candidates.length - 1 && e && e.status === 403) continue;
+        throw e;
+      }
+    }
+    return [];
   }
 
   /** docs/api-task-saves.md — POST /api/task-saves/{task_save}/evaluations */
@@ -391,6 +467,7 @@
     getListWordRelations: getListWordRelations,
     getListWordGenMessages: getListWordGenMessages,
     getColorLists: getColorLists,
+    getPublicColorLists: getPublicColorLists,
     getColorList: getColorList,
     unwrapArray: unwrapArray,
     getBoardSaveGroups: getBoardSaveGroups,
@@ -409,6 +486,8 @@
     createTaskSave: createTaskSave,
     updateTaskSave: updateTaskSave,
     getTaskSave: getTaskSave,
+    getTaskSaveById: getTaskSaveById,
+    getAllTaskSaves: getAllTaskSaves,
     createTaskEvaluation: createTaskEvaluation,
     updateTaskEvaluation: updateTaskEvaluation,
   };

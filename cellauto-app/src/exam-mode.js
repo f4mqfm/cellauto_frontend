@@ -261,6 +261,7 @@
       }
     }
     var rels = unwrapRelationsPayload(relPayload);
+    if (!rels.length) rels = extractRelationsFromWordsPayload(wordsPayload);
     var adj = buildAdjacencyFromRelations(rels, wordGen);
     var edgeCount = 0;
     var ak;
@@ -289,10 +290,13 @@
     try {
       var wordsPayload = await api.getListWords(lid);
       var relPayload = [];
+      var relLoadedOk = true;
       if (typeof api.getListWordRelations === 'function') {
         try {
           relPayload = await api.getListWordRelations(lid);
-        } catch (e1) {}
+        } catch (e1) {
+          relLoadedOk = false;
+        }
       }
       var msgPayload = null;
       if (typeof api.getListWordGenMessages === 'function') {
@@ -305,6 +309,8 @@
         parseIntSafe(state.taskRow && (state.taskRow.generations_count || state.taskRow.generationsCount), 0) ||
         5;
       state.practiceWordGraph = buildPracticeWordGraph(wordsPayload, relPayload, msgPayload, gcPath);
+      if (!relLoadedOk && extractRelationsFromWordsPayload(wordsPayload).length) relLoadedOk = true;
+      if (state.practiceWordGraph) state.practiceWordGraph.relationsReliable = !!relLoadedOk;
     } catch (e) {
       state.practiceWordGraph = null;
     }
@@ -325,7 +331,7 @@
     var g = state.practiceWordGraph;
     if (!g || !g.byGen[gen]) return null;
     var fp = g.fullPathWordIds && g.fullPathWordIds[gen];
-    if (!fp) return null;
+    if (!fp) return [];
     var out = [];
     var k;
     for (k in fp) {
@@ -334,7 +340,7 @@
         if (idn) out.push(idn);
       }
     }
-    return out.length ? out : null;
+    return out;
   }
 
   function practiceHasAdjacentFilledPrevGen(col, row, gen) {
@@ -353,6 +359,7 @@
     var g = state.practiceWordGraph;
     var matrix = typeof window.matrix !== 'undefined' ? window.matrix : null;
     if (!g || !matrix) return null;
+    if (g.relationsReliable === false && gen > 1) return [];
 
     if (!g.edgeCount) return practiceWordIdsAllInGeneration(gen);
 
@@ -1009,12 +1016,80 @@
     return [];
   }
 
+  function extractRelationsFromWordsPayload(wordsPayload) {
+    var out = [];
+    var gens =
+      wordsPayload && Array.isArray(wordsPayload.generations)
+        ? wordsPayload.generations
+        : wordsPayload && wordsPayload.data && Array.isArray(wordsPayload.data.generations)
+          ? wordsPayload.data.generations
+          : [];
+    for (var gi = 0; gi < gens.length; gi++) {
+      var row = gens[gi];
+      var words = row && Array.isArray(row.words) ? row.words : [];
+      for (var wi = 0; wi < words.length; wi++) {
+        var w = words[wi] || {};
+        var fromId = parseIntSafe(w.id, 0);
+        if (!fromId) continue;
+        var candidates = [];
+        if (Array.isArray(w.to_word_ids)) candidates = w.to_word_ids.slice();
+        else if (Array.isArray(w.toWordIds)) candidates = w.toWordIds.slice();
+        else if (Array.isArray(w.relations)) candidates = w.relations.slice();
+        else if (Array.isArray(w.to_words)) candidates = w.to_words.slice();
+        else if (Array.isArray(w.toWords)) candidates = w.toWords.slice();
+        for (var ci = 0; ci < candidates.length; ci++) {
+          var c = candidates[ci];
+          var toId =
+            typeof c === 'object' && c
+              ? parseIntSafe(
+                  c.to_word_id != null
+                    ? c.to_word_id
+                    : c.toWordId != null
+                      ? c.toWordId
+                      : c.id != null
+                        ? c.id
+                        : c.to_id != null
+                          ? c.to_id
+                          : c.toId,
+                  0
+                )
+              : parseIntSafe(c, 0);
+          if (!toId) continue;
+          out.push({ from_word_id: fromId, to_word_id: toId });
+        }
+      }
+    }
+    return out;
+  }
+
   function buildAdjacencyFromRelations(relations, wordGen) {
     var adj = Object.create(null);
+    function pickRelationWordId(row, side) {
+      if (!row || typeof row !== 'object') return 0;
+      var directSnake = row[side + '_word_id'];
+      var directCamel = row[side + 'WordId'];
+      var directShortSnake = row[side + '_id'];
+      var directShortCamel = row[side + 'Id'];
+      var nestedWord = row[side + '_word'] && typeof row[side + '_word'] === 'object' ? row[side + '_word'].id : null;
+      var nestedShort = row[side] && typeof row[side] === 'object' ? row[side].id : null;
+      var raw =
+        directSnake != null
+          ? directSnake
+          : directCamel != null
+            ? directCamel
+            : directShortSnake != null
+              ? directShortSnake
+              : directShortCamel != null
+                ? directShortCamel
+                : nestedWord != null
+                  ? nestedWord
+                  : nestedShort;
+      return parseIntSafe(raw, 0);
+    }
     for (var i = 0; i < relations.length; i++) {
       var r = relations[i];
-      var fromId = parseIntSafe(r.from_word_id != null ? r.from_word_id : r.fromWordId, 0);
-      var toId = parseIntSafe(r.to_word_id != null ? r.to_word_id : r.toWordId, 0);
+      var fromId = pickRelationWordId(r, 'from');
+      var toId = pickRelationWordId(r, 'to');
       if (!fromId || !toId) continue;
       var gFrom = wordGen[fromId];
       var gTo = wordGen[toId];
@@ -1124,6 +1199,7 @@
       var wordSentenceCount = 0;
       if (!incomplete) {
         var rels = unwrapRelationsPayload(relPayload);
+        if (!rels.length) rels = extractRelationsFromWordsPayload(wordsPayload);
         var adj = buildAdjacencyFromRelations(rels, wordGen);
         var edgeCount = 0;
         var ak;
@@ -1347,6 +1423,42 @@
         rows.push({ groupId: gid, groupName: gname, save: saves[j] });
       }
     }
+    if (!rows.length && typeof api.getAllTaskSaves === 'function') {
+      var flat = [];
+      try {
+        flat = await api.getAllTaskSaves();
+      } catch (e) {
+        flat = [];
+      }
+      for (var k = 0; k < flat.length; k++) {
+        var s = flat[k] || {};
+        var gidFlat = parseIntSafe(
+          s.task_save_group_id != null
+            ? s.task_save_group_id
+            : s.group_id != null
+              ? s.group_id
+              : s.groupId,
+          0
+        );
+        var gnameFlat = String(
+          s.task_save_group_name || s.group_name || s.groupName || (gidFlat ? 'Csoport #' + gidFlat : '')
+        ).trim();
+        rows.push({ groupId: gidFlat, groupName: gnameFlat, save: s });
+      }
+      if (rows.length) {
+        var seen = Object.create(null);
+        var merged = groups.slice();
+        for (var m = 0; m < rows.length; m++) {
+          var r = rows[m];
+          if (!(r.groupId > 0) || seen[r.groupId]) continue;
+          seen[r.groupId] = true;
+          if (!merged.some(function (g) { return (g && g.id) === r.groupId; })) {
+            merged.push({ id: r.groupId, name: r.groupName || 'Csoport #' + r.groupId });
+          }
+        }
+        populateGroupFilter(merged);
+      }
+    }
     state.cachedRows = rows;
     refreshExamTaskSelect();
   }
@@ -1358,8 +1470,11 @@
     var parts = raw.split(':');
     var gid = parseIntSafe(parts[0], 0);
     var sid = parseIntSafe(parts[1], 0);
-    if (!gid || !sid) return null;
-    var data = await api.getTaskSave(gid, sid);
+    if (!sid) return null;
+    var data;
+    if (gid > 0) data = await api.getTaskSave(gid, sid);
+    else if (typeof api.getTaskSaveById === 'function') data = await api.getTaskSaveById(sid);
+    else return null;
     var task = unwrapEntity(data);
     return { groupId: gid, task: task };
   }
@@ -1865,10 +1980,13 @@
     try {
       var wordsPayload = await api.getListWords(lid);
       var relPayload = [];
+      var relLoadedOk = true;
       if (typeof api.getListWordRelations === 'function') {
         try {
           relPayload = await api.getListWordRelations(lid);
-        } catch (eR) {}
+        } catch (eR) {
+          relLoadedOk = false;
+        }
       }
       var msgPayload = null;
       if (typeof api.getListWordGenMessages === 'function') {
@@ -1877,6 +1995,8 @@
         } catch (eM) {}
       }
       state.practiceWordGraph = buildPracticeWordGraph(wordsPayload, relPayload, msgPayload, gcPath);
+      if (!relLoadedOk && extractRelationsFromWordsPayload(wordsPayload).length) relLoadedOk = true;
+      if (state.practiceWordGraph) state.practiceWordGraph.relationsReliable = !!relLoadedOk;
       return state.practiceWordGraph;
     } catch (e) {
       return null;
@@ -2439,6 +2559,8 @@
 
     if (typeof window.reDrawTable === 'function') window.reDrawTable();
   }
+
+  window.CELLAUTO_exitExamMode = exitExamMode;
 
   function wire() {
     var openBtn = $('btnOpenExamModal');
