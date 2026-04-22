@@ -434,7 +434,8 @@
     if (gen === 1) return { ok: true, relationHighlightIds: practiceWordIdsAllInGeneration(1) };
 
     if (!practiceHasAdjacentFilledPrevGen(col, row, gen)) {
-      return { ok: false, message: 'Nincs szomszédos cella kitölve.', relationHighlightIds: null };
+      // A szóválasztó ilyenkor is jelenjen meg, csak ne legyen relációs (zöld) ajánlás.
+      return { ok: true, message: '', relationHighlightIds: [] };
     }
 
     return { ok: true, relationHighlightIds: practiceRelationHighlightIdsForCell(col, row, gen) };
@@ -447,12 +448,16 @@
     var gen = matrix[col][row] | 0;
     var wid = practiceWordIdFromLabel(wordStr, gen);
     var map = ensurePracticeCellWordIdsMap();
-    if (wid) map[col + ',' + row] = wid;
 
     var valid;
     if (highlightIds === null || highlightIds === undefined) valid = true;
     else if (!highlightIds.length) valid = false;
     else valid = wid > 0 && highlightIds.indexOf(wid) >= 0;
+
+    // Ha a választás nem érvényes reláció szerint, ne maradjon eltárolva:
+    // így a következő GEN már nem kaphat ajánlást hibás láncra építve.
+    if (valid && wid) map[col + ',' + row] = wid;
+    else delete map[col + ',' + row];
 
     var gm =
       state.practiceWordGraph && state.practiceWordGraph.genMessages
