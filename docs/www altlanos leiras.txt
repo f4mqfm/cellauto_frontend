@@ -1,0 +1,39 @@
+Ez a cellauto webes alkalmazas a sejtautomattak mukodeset szimulalja
+ez oktatasi / kutatasi celbol egyarant jol hasznalhato kortol fugetlenul egyarant
+Van "homokozo" ter a feluleten, barki marmit kiprobalhat, szorakozhat, hjatszodhat kedve szerint
+Fejleszteti a logigus gondolkodasat, kreativitasat
+A program erdekessege, hogy szzvakka, mondatokkal is ki van bovitve ami a nyelvtanulasba is segitseget nyujt
+Jatekosan lehet egyben a logikus gondolkodast illetve nyelvhelyesseg / nyelvtanulast is elsajatitani
+A felhasznalasi terulete az oktatason kivul szamos teruletet erint a kutatasban is
+Mivel a felhasznalo kezelese tobb szerepkoros (admin, tanar, diak, vendeg) ezert lehet A
+tanaroknak feladatokat letrehozni a diakok szamlara es azok gyakorolhatnak es vizsgazhatnak is belole
+A feladatokat lehet a sejtautomatta szinten kiindulva (a tanar meghataroz kiindulo poziciokat es a diak kell folytassa)
+illetve szavakat, mondatokat kell kiegeszitsen az elso sejt generaciotol a vegsoig)
+A feladathoz rendelt szolista alapjan kel a diaknak kiraknia a nyelvileg helyes mondatokat.
+A vizsga vegen a diak kiertkelest kap, esetleg uzenetet is tud hagni a tanarnak a vizsgaval kapcsolatosan.
+Ezt a tanar utolagozon megtudja tekinteni az admin feluleten
+
+A webalkalmazas tob reszbol, funkciobol all:
+
+bejelentkezes nelkul is kiprobalhato, van egy alap homokozo ami a lokalis gepen a felhasznalonak fut es semmulyen adatbazis muvelet nelkul kiprobalhassa a program mukodeset
+
+Ha regisztralt felhasznalo val lepik be a felhasznalo a lehetosegek kibovulnek
+A homokozon kivul itt mar hasznalhassak a backend nyujtotta lehetosegeket
+peldaul elmenthetik sajat munkajukat (sejtszerkezetuket)
+Gyakorolhatnak a tanar altal keszitett feladatokon
+Vizsgazhatnak, ilyenkor a vizsga eredmenye es a felhasznalo adataival tarolasra kerul amit kesobb a tanar megtekinthet
+
+HA tanari modba van bejelentkezve a felhasznalo akkot lehetosege van feladatok osszealitasara
+A feladatok lehetnek sejtautomattasak csak, ez azt jelenti, hogy a tanar megad kiinsulo poziciot (poziciokat) es a diak kell folytassa megadott generacioig
+Helehtek szolistaval parositottak
+ILyenkor vagy a tanar teljes sejtszerkezetet megadja es a diak csak a szolistara kell oszpontositson
+Vagy kiidulo sejtszerkezetet ad meg es elobb a diak megkell oldja a sejtautomatta kitolteset es ha siikerult akkor raterhe a szo/mondatok kitoltesere 
+ami szigoru szabalyok szerint meg lett hatarozva a tanar altal az admin feluleten
+A vizsgahoz tartozik idokorlat is, ha az ido lejar a vizsga automatikuson kiertkelesre kerul
+Ha a diak hamarabb vegez akkor kerheti a vizsga kiertekeleset
+A vizsga adataival egyut tarolodik a vizsga elvegzesi ideje is amit a tanar metud nezni
+
+Ha a diaknak eszrefetele van a vizsgaval kapcsolatosan, valamit a tabar elrontott, nem egyertelmu a szolista osszealitasa es ezert a feladat ferreertheto 
+vagy egyeb eszrevetele van a diaknak azt tudja uzenetkent megadni a vizsga kierekelesekor 
+ami ugyszinten csatolodik a vsiga eredmeny kiertekelesehez a mit a nanar megkap
+
